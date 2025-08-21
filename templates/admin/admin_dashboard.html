@@ -1,0 +1,16 @@
+{{define "head"}}
+    <link rel="stylesheet" href="/static/css/admin_layout.css">
+{{end}}
+
+{{define "content"}}
+<div class="admin-container">
+    <!-- Chama o cabeçalho correto do admin -->
+    {{template "_admin_header.html" .}}
+
+    <div class="form-container">
+        <h2>Dashboard do Admin</h2>
+        <p>Bem-vindo, Administrador. Use o menu acima para navegar pelas funcionalidades do sistema.</p>
+        <!-- A lista de links e o botão Sair foram removidos daqui para evitar duplicação -->
+    </div>
+</div>
+{{end}}

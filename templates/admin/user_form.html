@@ -1,0 +1,40 @@
+{{define "content"}}
+<div class="form-container">
+    <h2>{{.Title}}</h2>
+
+    <form action="{{.Action}}" method="post">
+        <div class="form-group">
+            <label for="name">Nome:</label>
+            <input type="text" id="name" name="name" value="{{.User.Name}}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" value="{{.User.Email}}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Senha:</label>
+            {{if .IsNew}}
+                <input type="password" id="password" name="password" required>
+            {{else}}
+                <input type="password" id="password" name="password" placeholder="Deixe em branco para não alterar">
+            {{end}}
+        </div>
+
+        <div class="form-group">
+            <label for="user_type">Tipo de Usuário:</label>
+            <select id="user_type" name="user_type" required>
+                <option value="">Selecione um tipo</option>
+                {{range .UserTypes}}
+                    <option value="{{.}}" {{if eq . $.User.UserType}}selected{{end}}>{{.}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <button type="submit" class="btn-submit">Salvar</button>
+    </form>
+    
+    <a href="/admin/users" style="display: inline-block; margin-top: 20px;">Cancelar</a>
+</div>
+{{end}}

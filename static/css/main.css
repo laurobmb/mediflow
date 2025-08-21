@@ -1,0 +1,233 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #F8F0FA; /* Fundo geral muito levemente roxo/lilás */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.form-container {
+    background-color: #FFFFFF; /* Fundo branco para o container do formulário */
+    border-radius: 12px;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    width: 100%;
+    max-width: 700px; /* Aumentei um pouco a largura para acomodar mais campos */
+    box-sizing: border-box;
+}
+
+/* --- ESTILOS PARA A PÁGINA DE LOGIN --- */
+
+.login-container {
+    display: flex;
+    width: 100%;
+    max-width: 900px; /* Largura máxima do container de login */
+    background-color: #FFFFFF;
+    border-radius: 12px;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden; /* Garante que os cantos arredondados se apliquem à imagem */
+}
+
+.login-image-section {
+    flex: 1; /* Ocupa 50% do espaço */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #FCFBFD; /* Fundo muito claro para a secção da imagem */
+}
+
+.login-image-section img {
+    max-width: 80%;
+    height: auto;
+}
+
+.login-form-section {
+    flex: 1; /* Ocupa 50% do espaço */
+    padding: 40px;
+}
+
+/* Ajusta o .form-container para não ter estilos próprios quando está dentro do login */
+.login-form-section .form-container {
+    box-shadow: none;
+    padding: 0;
+    max-width: none;
+}
+
+/* Design Responsivo para telemóveis */
+@media (max-width: 768px) {
+    .login-container {
+        flex-direction: column; /* Coloca a imagem em cima do formulário */
+    }
+    .login-image-section {
+        padding: 20px 0;
+    }
+    .login-image-section img {
+        max-width: 150px; /* Reduz o tamanho do logótipo em ecrãs pequenos */
+    }
+    .login-form-section {
+        padding: 30px;
+    }
+}
+
+/* --- FIM DOS NOVOS ESTILOS --- */
+
+
+h2 {
+    text-align: center;
+    color: #333333;
+    margin-bottom: 30px;
+    font-size: 28px;
+}
+
+fieldset {
+    border: 1px solid #E0D0F0;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    padding: 20px;
+    background-color: #FCFBFD;
+}
+
+legend {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #5A3A81;
+    padding: 0 10px;
+    margin-left: -10px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555555;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"], /* Adicionado para garantir o estilo na senha */
+.form-group input[type="tel"],
+.form-group input[type="number"],
+.form-group input[type="date"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #CFC4E6;
+    border-radius: 6px;
+    font-size: 16px;
+    background-color: #F9F6FC;
+    box-sizing: border-box;
+    color: #333333;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #A396BB;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #8A2BE2;
+    background-color: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(138, 43, 226, 0.2);
+}
+
+.form-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.form-row > .form-group {
+    flex: 1;
+    min-width: 180px;
+}
+
+.btn-submit {
+    width: 100%;
+    padding: 15px 25px;
+    background-color: #8A2BE2;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 4px 10px rgba(138, 43, 226, 0.3);
+    margin-top: 10px; /* Reduzido o margin-top */
+}
+
+.btn-submit:hover {
+    background-color: #6A0DAD;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(138, 43, 226, 0.4);
+}
+
+/* --- NOVOS ESTILOS PARA AÇÕES DE FORMULÁRIO --- */
+.form-actions {
+    display: flex;
+    justify-content: flex-end; /* Alinha os botões à direita */
+    gap: 15px; /* Espaço entre os botões */
+    margin-top: 30px;
+    align-items: center;
+}
+
+/* Ajusta o botão de submissão para não ocupar a largura toda quando dentro de .form-actions */
+.form-actions .btn-submit {
+    width: auto;
+    margin-top: 0;
+    font-size: 16px; /* Tamanho de fonte mais consistente */
+}
+
+/* Estilo para o botão/link de cancelar */
+.form-actions .btn-cancel {
+    display: inline-block;
+    padding: 15px 25px;
+    text-decoration: none;
+    color: #5A3A81;
+    font-weight: bold;
+    font-size: 16px;
+    border-radius: 6px;
+    transition: background-color 0.3s ease;
+}
+
+.form-actions .btn-cancel:hover {
+    background-color: #f0eaf5;
+}
+
+
+@media (max-width: 600px) {
+    .form-row {
+        flex-direction: column;
+    }
+    .form-row > .form-group {
+        min-width: unset;
+    }
+    .form-container {
+        padding: 20px;
+    }
+    h2 {
+        font-size: 24px;
+    }
+    .form-actions {
+        flex-direction: column-reverse; /* Empilha os botões em telemóveis */
+        width: 100%;
+    }
+    .form-actions .btn-submit, .form-actions .btn-cancel {
+        width: 100%;
+        text-align: center;
+    }
+}

@@ -1,0 +1,13 @@
+{{template "layouts/main.html" .}}
+
+{{define "content"}}
+<div class="form-container">
+    <!-- CORREÇÃO: Removida a função 'default' -->
+    <h2 style="color: #A13A3A;">{{.Title}}</h2>
+    <p style="text-align: center; font-size: 1.1em;">{{.Message}}</p>
+    <br>
+    <div style="text-align: center;">
+        <a href="javascript:history.back()" class="btn-submit" style="width: auto; display: inline-block; text-decoration: none;">Voltar</a>
+    </div>
+</div>
+{{end}}

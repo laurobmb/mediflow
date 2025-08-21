@@ -1,0 +1,93 @@
+{{define "head"}}
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/admin_layout.css">
+{{end}}
+{{define "content"}}
+<div class="admin-container">
+    {{template "_admin_header.html" .}}
+<div class="form-container">
+    <h2>Gerenciar Pacientes</h2>
+
+    <!-- Formulário de Busca -->
+    <form action="/admin/patients" method="GET" class="search-container">
+        <input type="search" name="search" id="search-box" placeholder="Buscar paciente por nome ou email..." value="{{.SearchTerm}}" autocomplete="off">
+        <div id="autocomplete-results"></div>
+    </form>
+
+    <a href="/admin/patients/new" class="btn-add-user">Adicionar Novo Paciente</a>
+
+    <table class="user-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Patients}}
+            <tr>
+                <td>{{.ID}}</td>
+                <td>{{.Name}}</td>
+                <td>{{.Email}}</td>
+                <td>{{.Phone}}</td>
+                <td class="action-links">
+                    <a href="/admin/patients/edit/{{.ID}}" class="edit-link">Editar</a>
+                    <a href="/admin/patients/delete/{{.ID}}" class="delete-link" onclick="return confirm('Tem certeza que deseja remover este paciente?');">Remover</a>
+                </td>
+            </tr>
+            {{else}}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">Nenhum paciente encontrado.</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+
+    <!-- Controles de Paginação (VERSÃO MELHORADA) -->
+    {{if gt .TotalPages 1}}
+    <div class="pagination">
+        <!-- Primeira Página -->
+        {{if gt .CurrentPage 1}}
+            <a href="/admin/patients?page=1&search={{.SearchTerm}}">« Primeira</a>
+        {{else}}
+            <span class="disabled">« Primeira</span>
+        {{end}}
+
+        <!-- Página Anterior -->
+        {{if gt .CurrentPage 1}}
+            <a href="/admin/patients?page={{.CurrentPage | minus 1}}&search={{.SearchTerm}}">‹ Anterior</a>
+        {{else}}
+            <span class="disabled">‹ Anterior</span>
+        {{end}}
+
+        <!-- Indicador de Página -->
+        <span class="page-indicator">Página {{.CurrentPage}} de {{.TotalPages}}</span>
+
+        <!-- Próxima Página -->
+        {{if lt .CurrentPage .TotalPages}}
+            <a href="/admin/patients?page={{.CurrentPage | plus 1}}&search={{.SearchTerm}}">Próxima ›</a>
+        {{else}}
+            <span class="disabled">Próxima ›</span>
+        {{end}}
+
+        <!-- Última Página -->
+        {{if lt .CurrentPage .TotalPages}}
+            <a href="/admin/patients?page={{.TotalPages}}&search={{.SearchTerm}}">Última »</a>
+        {{else}}
+            <span class="disabled">Última »</span>
+        {{end}}
+    </div>
+    {{end}}
+    
+    <br>
+    <a href="/admin/dashboard" style="display: inline-block; margin-top: 20px;">Voltar para o Dashboard</a>
+</div>
+{{end}}
+
+{{define "scripts"}}
+    <!-- Carrega o JavaScript específico para esta página -->
+    <script src="/static/js/autocomplete.js"></script>
+{{end}}

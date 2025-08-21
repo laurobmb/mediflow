@@ -1,0 +1,102 @@
+{{define "head"}}
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/secretaria.css">
+{{end}}
+
+{{define "content"}}
+<div class="secretaria-container">
+    <div class="secretaria-header">
+        <div class="logo-area">Secretária</div>
+        <div class="main-actions">
+            <a href="/secretaria/dashboard">Agenda</a>
+            <a href="/secretaria/patients" class="active">Consultar Pacientes</a>
+            <a href="/secretaria/pacientes/novo">Cadastrar Paciente</a>
+            <a href="/logout">Sair</a>
+        </div>
+    </div>
+    <h2>Agenda de: {{.Patient.Name}}</h2>
+
+    <fieldset>
+        <legend>Marcar Nova Consulta</legend>
+        <form action="/secretaria/appointments/new" method="post">
+            <input type="hidden" name="patient_id" value="{{.Patient.ID}}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="doctor_id">Médico:</label>
+                    <select id="doctor_id" name="doctor_id" required>
+                        <option value="">Selecione</option>
+                        {{range .Doctors}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="appointment_date">Data:</label>
+                    <input type="date" id="appointment_date" name="appointment_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="start_time">Horário:</label>
+                    <input type="time" id="start_time" name="start_time" required>
+                </div>
+            </div>
+            <button type="submit" class="btn-submit">Marcar Consulta</button>
+        </form>
+    </fieldset>
+
+    <fieldset>
+        <legend>Consultas Futuras</legend>
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th>Data e Hora</th>
+                    <th>Médico</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .FutureAppointments}}
+                <tr>
+                    <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
+                    <td>{{.DoctorName}}</td>
+                    <td>{{.Status}}</td>
+                    <td class="action-links">
+                        <!-- NOVO BOTÃO DE EDITAR -->
+                        <a href="/secretaria/appointments/edit/{{.ID}}" class="edit-link">Editar</a>
+                        <a href="/secretaria/appointments/cancel/{{.ID}}?patient_id={{$.Patient.ID}}" class="delete-link" onclick="return confirm('Tem certeza que deseja desmarcar esta consulta?');">Desmarcar</a>
+                    </td>
+                </tr>
+                {{else}}
+                <tr><td colspan="4" style="text-align: center;">Nenhuma consulta futura agendada.</td></tr>
+                {{end}}
+            </tbody>
+        </table>
+    </fieldset>
+
+    <fieldset>
+        <legend>Histórico de Consultas</legend>
+        <table class="user-table">
+             <thead>
+                <tr>
+                    <th>Data e Hora</th>
+                    <th>Médico</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .PastAppointments}}
+                <tr>
+                    <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
+                    <td>{{.DoctorName}}</td>
+                    <td>{{.Status}}</td>
+                </tr>
+                {{else}}
+                <tr><td colspan="3" style="text-align: center;">Nenhum histórico de consultas.</td></tr>
+                {{end}}
+            </tbody>
+        </table>
+    </fieldset>
+
+    <a href="/secretaria/patients" style="display: inline-block; margin-top: 20px;">Voltar para a Lista de Pacientes</a>
+</div>
+{{end}}

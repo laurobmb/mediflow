@@ -1,0 +1,50 @@
+{{define "head"}}
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/admin_layout.css">
+{{end}}
+
+{{define "content"}}
+<div class="admin-container">
+    {{template "_admin_header.html" .}}
+
+    <div class="form-container">
+        <h2>Gerenciar Usuários</h2>
+
+        <a href="/admin/users/new" class="btn-add-user">Adicionar Novo Usuário</a>
+
+        {{if .Error}}
+            <p style="color: red; text-align: center;">{{.Error}}</p>
+        {{else}}
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Email</th>
+                        <th>Tipo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Users}}
+                    <tr>
+                        <td>{{.ID}}</td>
+                        <td>{{.Name}}</td>
+                        <td>{{.Email}}</td>
+                        <td>{{.UserType}}</td>
+                        <td class="action-links">
+                            <a href="/admin/users/edit/{{.ID}}" class="edit-link">Editar</a>
+                            <a href="/admin/users/delete/{{.ID}}" class="delete-link" onclick="return confirm('Tem certeza que deseja remover este usuário?');">Remover</a>
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="5" class="no-users">Nenhum usuário encontrado.</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        {{end}}
+    </div>
+</div>
+{{end}}

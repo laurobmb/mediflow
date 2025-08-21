@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - MediFlow</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <!-- Bloco para CSS específico da página -->
+    {{block "head" .}}{{end}}
+</head>
+<body>
+    <!-- Bloco para o conteúdo principal da página -->
+    {{block "content" .}}{{end}}
+    
+    <script src="/static/js/main.js"></script>
+    <!-- Bloco para scripts específicos da página -->
+    {{block "scripts" .}}{{end}}
+</body>
+</html>

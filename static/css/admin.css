@@ -1,0 +1,118 @@
+/* Estilos para a tabela de usuários/pacientes */
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.user-table th, .user-table td {
+    border: 1px solid #E0D0F0;
+    padding: 12px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.user-table th {
+    background-color: #F8F0FA;
+    color: #5A3A81;
+    font-weight: bold;
+}
+
+.user-table tr:hover {
+    background-color: #E6E0F0;
+}
+
+.action-links a {
+    margin-right: 10px;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.edit-link {
+    background-color: #E6E0F0;
+    color: #5A3A81;
+}
+
+.delete-link {
+    background-color: #FAE0E0;
+    color: #A13A3A;
+}
+
+.btn-add-user {
+    display: inline-block;
+    margin-bottom: 20px;
+    padding: 10px 15px;
+    background-color: #8A2BE2;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+/* Estilos para busca e paginação */
+.search-container {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.search-container input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: 1px solid #CFC4E6;
+}
+
+.pagination {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.pagination a, .pagination span {
+    margin: 0 5px;
+    padding: 8px 12px;
+    text-decoration: none;
+    border: 1px solid #E0D0F0;
+    border-radius: 4px;
+    color: #5A3A81;
+}
+
+.pagination a:hover {
+    background-color: #E6E0F0;
+}
+
+.pagination .current {
+    background-color: #8A2BE2;
+    color: white;
+    border-color: #8A2BE2;
+}
+
+.pagination .disabled {
+    color: #ccc;
+    pointer-events: none;
+}
+
+#autocomplete-results {
+    position: absolute;
+    border: 1px solid #ddd;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: white;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#autocomplete-results div {
+    padding: 10px;
+    cursor: pointer;
+}
+
+#autocomplete-results div:hover {
+    background-color: #f1f1f1;
+}

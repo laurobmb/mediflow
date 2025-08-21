@@ -1,0 +1,98 @@
+{{define "head"}}
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/secretaria.css">
+{{end}}
+
+{{define "content"}}
+<div class="secretaria-container">
+    <div class="secretaria-header">
+        <div class="logo-area">Secretária</div>
+        <div class="main-actions">
+            <a href="/secretaria/dashboard">Agenda</a>
+            <a href="/secretaria/patients" class="active">Consultar Pacientes</a>
+            <a href="/secretaria/pacientes/novo">Cadastrar Paciente</a>
+            <a href="/logout">Sair</a>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <h2>Consultar Pacientes</h2>
+        <form action="/secretaria/patients" method="GET" class="search-container">
+            <input type="search" name="search" id="search-box" placeholder="Buscar paciente por nome..." value="{{.SearchTerm}}" autocomplete="off">
+            <div id="autocomplete-results"></div>
+        </form>
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Telefone</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Patients}}
+                <tr>
+                    <td>{{.Name}}</td>
+                    <td>{{.Email}}</td>
+                    <td>{{.Phone}}</td>
+                    <td class="action-links">
+                        <a href="/secretaria/patients/profile/{{.ID}}" class="edit-link">Ver Agenda</a>
+                    </td>
+                </tr>
+                {{else}}
+                <tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum paciente encontrado.</td></tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{if gt .TotalPages 1}}
+        <div class="pagination">
+            {{if gt .CurrentPage 1}}<a href="/secretaria/patients?page={{.CurrentPage | minus 1}}&search={{.SearchTerm}}">‹ Anterior</a>{{else}}<span class="disabled">‹ Anterior</span>{{end}}
+            <span class="page-indicator">Página {{.CurrentPage}} de {{.TotalPages}}</span>
+            {{if lt .CurrentPage .TotalPages}}<a href="/secretaria/patients?page={{.CurrentPage | plus 1}}&search={{.SearchTerm}}">Próxima ›</a>{{else}}<span class="disabled">Próxima ›</span>{{end}}
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+    <script src="/static/js/autocomplete.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchBox = document.getElementById('search-box');
+            if (searchBox) {
+                searchBox.addEventListener('input', function() {
+                    const term = this.value;
+                    const resultsContainer = document.getElementById('autocomplete-results');
+                    if (term.length < 2) {
+                        resultsContainer.innerHTML = '';
+                        resultsContainer.style.display = 'none';
+                        return;
+                    }
+                    fetch(`/secretaria/patients/search?term=${encodeURIComponent(term)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            resultsContainer.innerHTML = '';
+                            if (data && data.length > 0) {
+                                resultsContainer.style.display = 'block';
+                                data.forEach(name => {
+                                    const div = document.createElement('div');
+                                    div.textContent = name;
+                                    div.addEventListener('click', function() {
+                                        searchBox.value = this.textContent;
+                                        resultsContainer.innerHTML = '';
+                                        resultsContainer.style.display = 'none';
+                                        searchBox.form.submit();
+                                    });
+                                    resultsContainer.appendChild(div);
+                                });
+                            } else {
+                                resultsContainer.style.display = 'none';
+                            }
+                        });
+                });
+            }
+        });
+    </script>
+{{end}}

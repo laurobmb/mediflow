@@ -1,0 +1,25 @@
+{{template "main.html" .}}
+{{define "content"}}
+<div class="form-container">
+    <h2>Perfil do Paciente</h2>
+    <div class="patient-info">
+        <h3>{{.Patient.Name}}</h3>
+        <p><strong>Email:</strong> {{.Patient.Email}}</p>
+        <p><strong>Telefone:</strong> {{.Patient.Mobile}}</p>
+        </div>
+    
+    <div class="consultation-history">
+        <h3>Histórico de Consultas</h3>
+        <ul>
+            {{range .Consultations}}
+            <li>
+                <strong>Data:</strong> {{.Date}}
+                <p>{{.Summary}}</p>
+            </li>
+            {{else}}
+            <li>Nenhuma consulta encontrada para este paciente.</li>
+            {{end}}
+        </ul>
+    </div>
+</div>
+{{end}}
