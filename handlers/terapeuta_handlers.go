@@ -27,7 +27,7 @@ type TerapeutaDashboardData struct {
 func (h *TerapeutaHandler) TerapeutaDashboard(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int) // Pega o ID do terapeuta logado
-
+	searchTerm := c.Query("search")
 	data := TerapeutaDashboardData{}
 
 	// 1. Buscar as próximas 10 consultas do terapeuta
@@ -56,10 +56,10 @@ func (h *TerapeutaHandler) TerapeutaDashboard(c *gin.Context) {
 		SELECT DISTINCT p.id, p.name, p.email, p.phone
 		FROM patients p
 		JOIN appointments a ON p.id = a.patient_id
-		WHERE a.doctor_id = $1
+		WHERE a.doctor_id = $1 AND p.name ILIKE $2
 		ORDER BY p.name ASC`
 
-	rows, err = h.DB.Query(queryPatients, userID)
+	rows, err = h.DB.Query(queryPatients, userID, "%"+searchTerm+"%")
 	if err != nil {
 		log.Printf("Erro ao buscar pacientes do terapeuta: %v", err)
 	} else {
@@ -78,6 +78,7 @@ func (h *TerapeutaHandler) TerapeutaDashboard(c *gin.Context) {
 		"Title":     "Meu Dashboard",
 		"Data":      data,
 		"ActiveNav": "dashboard",
+		"SearchTerm": searchTerm, // Passa o termo de busca de volta para o HTML		
 	})
 }
 
@@ -183,4 +184,42 @@ func (h *TerapeutaHandler) ProcessPatientRecord(c *gin.Context) {
 	}
 
 	c.Redirect(http.StatusFound, "/terapeuta/pacientes/prontuario/"+patientIDStr)
+}
+
+
+// SearchMyPatientsAPI busca e retorna apenas os pacientes associados ao terapeuta logado.
+func (h *TerapeutaHandler) SearchMyPatientsAPI(c *gin.Context) {
+    session := sessions.Default(c)
+    therapistID := session.Get("user_id").(int)
+    term := c.Query("term")
+
+    if term == "" {
+        c.JSON(http.StatusOK, []string{})
+        return
+    }
+
+    query := `
+        SELECT DISTINCT p.name
+        FROM patients p
+        JOIN appointments a ON p.id = a.patient_id
+        WHERE a.doctor_id = $1 AND p.name ILIKE $2
+        ORDER BY p.name ASC
+        LIMIT 10`
+
+    rows, err := h.DB.Query(query, therapistID, term+"%")
+    if err != nil {
+        log.Printf("Erro na busca de pacientes do terapeuta: %v", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro no servidor"})
+        return
+    }
+    defer rows.Close()
+
+    var names []string
+    for rows.Next() {
+        var name string
+        if err := rows.Scan(&name); err == nil {
+            names = append(names, name)
+        }
+    }
+    c.JSON(http.StatusOK, names)
 }

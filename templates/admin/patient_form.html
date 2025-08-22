@@ -134,7 +134,12 @@
             </fieldset>
 
             <div class="form-actions">
-                <a href="/admin/patients" class="btn-cancel">Voltar para a Lista</a>
+                {{if eq .UserType "admin"}}
+                    <a href="/admin/patients" class="btn-cancel">Voltar para a Lista</a>
+                {{else}}
+                    <a href="/terapeuta/dashboard" class="btn-cancel">Voltar ao Dashboard</a>
+                {{end}}
+            
                 <button type="submit" class="btn-submit">Salvar e Criar Registro Histórico</button>
             </div>
         </form>

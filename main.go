@@ -181,7 +181,8 @@ func main() {
 	{
         terapeutaGroup.GET("/dashboard", terapeutaHandler.TerapeutaDashboard)
 		terapeutaGroup.GET("/pacientes/prontuario/:id", terapeutaHandler.ShowPatientRecord)
-		terapeutaGroup.POST("/pacientes/prontuario/:id", terapeutaHandler.ProcessPatientRecord)		
+		terapeutaGroup.POST("/pacientes/prontuario/:id", terapeutaHandler.ProcessPatientRecord)
+		terapeutaGroup.GET("/pacientes/search", terapeutaHandler.SearchMyPatientsAPI)
 	}
 
 	adminGroup := router.Group("/admin", AuthRequired(), RoleRequired("admin"))

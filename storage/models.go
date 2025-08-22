@@ -107,6 +107,8 @@ type Appointment struct {
 	EndTime   time.Time `json:"end_time"`
 	Notes     string    `json:"notes"`
 	Status    string    `json:"status"`
+	Price         float64 `json:"price"`
+	PaymentStatus string  `json:"payment_status"`	
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

@@ -631,49 +631,52 @@ func (h *AdminHandler) PostNewPatientRecord(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/admin/patients/record/"+strconv.Itoa(record.PatientID))
 }
 
-// GetPatientProfile busca e exibe o perfil completo de um paciente, incluindo consultas.
+
 func (h *AdminHandler) GetPatientProfile(c *gin.Context) {
-    idStr := c.Param("id")
-    patientID, _ := strconv.Atoi(idStr)
+	idStr := c.Param("id")
+	patientID, _ := strconv.Atoi(idStr)
 
-    var patient storage.Patient
-    err := h.DB.QueryRow("SELECT id, name FROM patients WHERE id = $1", patientID).Scan(&patient.ID, &patient.Name)
-    if err != nil {
-        log.Printf("Erro ao buscar perfil do paciente: %v", err)
-        c.Redirect(http.StatusFound, "/admin/patients")
-        return
-    }
+	var patient storage.Patient
+	err := h.DB.QueryRow("SELECT id, name FROM patients WHERE id = $1", patientID).Scan(&patient.ID, &patient.Name)
+	if err != nil {
+		log.Printf("Erro ao buscar perfil do paciente: %v", err)
+		c.Redirect(http.StatusFound, "/admin/patients")
+		return
+	}
 
-    futureAppointments, err := h.getAppointmentsByTime(patientID, ">=")
-    if err != nil {
-        log.Printf("Erro ao buscar consultas futuras: %v", err)
-    }
+	// Busca agendamentos futuros (que têm preço)
+	futureAppointments, err := h.getAppointmentsByTime(patientID, ">=")
+	if err != nil {
+		log.Printf("Erro ao buscar consultas futuras: %v", err)
+	}
 
-    pastAppointments, err := h.getAppointmentsByTime(patientID, "<")
-    if err != nil {
-        log.Printf("Erro ao buscar histórico de consultas: %v", err)
-    }
+	// Busca agendamentos passados (que também têm preço)
+	pastAppointments, err := h.getAppointmentsByTime(patientID, "<")
+	if err != nil {
+		log.Printf("Erro ao buscar histórico de consultas: %v", err)
+	}
 
-    var doctors []storage.User
-    rows, err := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'terapeuta' ORDER BY name ASC")
-    if err == nil {
-        defer rows.Close()
-        for rows.Next() {
-            var doc storage.User
-            if err := rows.Scan(&doc.ID, &doc.Name); err == nil {
-                doctors = append(doctors, doc)
-            }
-        }
-    }
+	// Busca a lista de terapeutas para o formulário de agendamento
+	var doctors []storage.User
+	rows, err := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'terapeuta' ORDER BY name ASC")
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var doc storage.User
+			if err := rows.Scan(&doc.ID, &doc.Name); err == nil {
+				doctors = append(doctors, doc)
+			}
+		}
+	}
 
-    c.HTML(http.StatusOK, "admin/patient_profile.html", gin.H{
-        "Title":            "Perfil de " + patient.Name,
-        "Patient":          patient,
-        "FutureAppointments": futureAppointments,
-        "PastAppointments": pastAppointments,
-        "Doctors":          doctors,
-		"ActiveNav": "patients",
-    })
+	c.HTML(http.StatusOK, "admin/patient_profile.html", gin.H{
+		"Title":              "Perfil de " + patient.Name,
+		"Patient":            patient,
+		"FutureAppointments": futureAppointments,
+		"PastAppointments":   pastAppointments,
+		"Doctors":            doctors,
+		"ActiveNav":          "patients",
+	})
 }
 
 // PostNewAppointment processa o agendamento de uma nova consulta.
@@ -684,10 +687,13 @@ func (h *AdminHandler) PostNewAppointment(c *gin.Context) {
     timeStr := c.PostForm("start_time")
     status := c.PostForm("status")
     notes := c.PostForm("notes")
+	// NOVO: Pega o preço do formulário
+	priceStr := c.PostForm("price")
 
     patientID, _ := strconv.Atoi(patientIDStr)
     doctorID, _ := strconv.Atoi(doctorIDStr)
-
+	price, _ := strconv.ParseFloat(priceStr, 64)
+		
     startTime, err := time.Parse("2006-01-02 15:04", dateStr+" "+timeStr)
     if err != nil {
         log.Printf("Erro ao converter data/hora do agendamento: %v", err)
@@ -700,24 +706,26 @@ func (h *AdminHandler) PostNewAppointment(c *gin.Context) {
         status = "concluido"
     }
 
-    query := `INSERT INTO appointments (patient_id, doctor_id, start_time, end_time, status, notes, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-    _, err = h.DB.Exec(query, patientID, doctorID, startTime, endTime, status, notes, time.Now(), time.Now())
-    if err != nil {
-        log.Printf("Erro ao agendar nova consulta: %v", err)
-    }
+	// NOVO: Query agora inclui a coluna 'price'
+	query := `INSERT INTO appointments (patient_id, doctor_id, start_time, end_time, status, notes, price, created_at, updated_at) 
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err = h.DB.Exec(query, patientID, doctorID, startTime, endTime, status, notes, price, time.Now(), time.Now())
+	if err != nil {
+		log.Printf("Erro ao agendar nova consulta: %v", err)
+	}
 
     c.Redirect(http.StatusFound, "/admin/patients/profile/"+patientIDStr)
 }
 
 // getAppointmentsByTime é uma função de ajuda para buscar consultas.
 func (h *AdminHandler) getAppointmentsByTime(patientID int, comparison string) ([]map[string]interface{}, error) {
-    query := `
-        SELECT a.id, a.start_time, a.status, a.notes, u.name as doctor_name
-        FROM appointments a
-        JOIN users u ON a.doctor_id = u.id
-        WHERE a.patient_id = $1 AND a.start_time ` + comparison + ` $2
-        ORDER BY a.start_time DESC
-    `
+	query := `
+		SELECT a.id, a.start_time, a.status, a.notes, u.name as doctor_name, a.price, a.payment_status
+		FROM appointments a
+		JOIN users u ON a.doctor_id = u.id
+		WHERE a.patient_id = $1 AND a.start_time ` + comparison + ` $2
+		ORDER BY a.start_time DESC
+	`
     rows, err := h.DB.Query(query, patientID, time.Now())
     if err != nil {
         return nil, err
@@ -729,9 +737,11 @@ func (h *AdminHandler) getAppointmentsByTime(patientID int, comparison string) (
         var app storage.Appointment
         var doctorName string
 		var notes sql.NullString
-        if err := rows.Scan(&app.ID, &app.StartTime, &app.Status, &notes, &doctorName); err != nil {
-            continue
-        }
+		var price sql.NullFloat64
+		var paymentStatus sql.NullString
+		if err := rows.Scan(&app.ID, &app.StartTime, &app.Status, &notes, &doctorName, &price, &paymentStatus); err != nil {
+			continue
+		}
         app.Notes = notes.String
         appointments = append(appointments, map[string]interface{}{
             "ID":         app.ID,
@@ -739,6 +749,8 @@ func (h *AdminHandler) getAppointmentsByTime(patientID int, comparison string) (
             "Status":     app.Status,
             "Notes":      app.Notes,
             "DoctorName": doctorName,
+			"Price":         price.Float64,
+			"PaymentStatus": paymentStatus.String,			
         })
     }
     return appointments, nil

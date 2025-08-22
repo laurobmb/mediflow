@@ -64,6 +64,10 @@ CREATE TABLE IF NOT EXISTS appointments (
   doctor_id INT NOT NULL REFERENCES users(id), start_time TIMESTAMP WITH TIME ZONE NOT NULL,
   end_time TIMESTAMP WITH TIME ZONE NOT NULL, notes TEXT,
   status VARCHAR(50) NOT NULL CHECK (status IN ('agendado', 'concluido', 'cancelado')),
+  -- COLUNAS ADICIONADAS --
+  price NUMERIC(10, 2) DEFAULT 0.00,
+  payment_status VARCHAR(50) NOT NULL DEFAULT 'pendente' CHECK (payment_status IN ('pendente', 'pago', 'isento')),
+
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

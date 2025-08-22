@@ -10,7 +10,7 @@
 
     <!-- Formulário de Busca -->
     <form action="/admin/patients" method="GET" class="search-container">
-        <input type="search" name="search" id="search-box" placeholder="Buscar paciente por nome ou email..." value="{{.SearchTerm}}" autocomplete="off">
+        <input type="search" name="search" id="search-box" placeholder="Buscar paciente por nome ou email..." value="{{.SearchTerm}}" data-api-url="/admin/patients/search" autocomplete="off">
         <div id="autocomplete-results"></div>
     </form>
 
@@ -41,7 +41,7 @@
                     {{end}}
                 </td>
                 <td class="action-links">
-                    <a href="/admin/patients/edit/{{.ID}}" class="edit-link">Editar/Prontuário</a>
+                    <a href="/admin/patients/profile/{{.ID}}" class="edit-link">Ver Perfil e Agenda</a>
 
                     {{if not .ConsentGivenAt.Valid}}
                         {{if .AccessToken.Valid}}
@@ -103,7 +103,7 @@
 
 {{define "scripts"}}
     <!-- Carrega o JavaScript específico para esta página -->
-    <script src="/static/js/autocomplete.js"></script>
+    <script src="/static/js/autocomplete-v2.js"></script>
     <script>
         function showConsentLink(token) {
             // Constrói a URL completa usando o host atual do navegador

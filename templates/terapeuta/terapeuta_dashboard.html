@@ -36,6 +36,14 @@
 
         <div class="dashboard-card">
             <h3>Meus Pacientes</h3>
+
+            <form action="/terapeuta/dashboard" method="GET" class="search-container">
+                <input type="search" name="search" id="search-box"
+                       placeholder="Buscar paciente por nome..."
+                       value="{{.SearchTerm}}" autocomplete="off"
+                       data-api-url="/terapeuta/pacientes/search">  <div id="autocomplete-results"></div>
+            </form>
+
             <div style="max-height: 400px; overflow-y: auto;">
                 <table class="user-table" style="margin-top: 0;">
                     <thead>
@@ -60,4 +68,7 @@
 
     </div>
 </div>
+{{end}}
+{{define "scripts"}}
+    <script src="/static/js/autocomplete-v2.js"></script>
 {{end}}
