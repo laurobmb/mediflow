@@ -362,15 +362,15 @@ func (h *SecretariaHandler) PostEditAppointment(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/secretaria/patients/profile/"+patientIDStr)
 }
 
-// Função de ajuda para buscar consultas (pode ser partilhada com admin_handlers)
+// Função de ajuda para buscar consultas (agora com preço e status de pagamento)
 func getAppointmentsByTime(db *sql.DB, patientID int, comparison string) ([]map[string]interface{}, error) {
 	query := `
-        SELECT a.id, a.start_time, a.status, a.notes, u.name as doctor_name
-        FROM appointments a
-        JOIN users u ON a.doctor_id = u.id
-        WHERE a.patient_id = $1 AND a.start_time ` + comparison + ` $2
-        ORDER BY a.start_time DESC
-    `
+		SELECT a.id, a.start_time, a.status, a.notes, u.name as doctor_name, a.price, a.payment_status
+		FROM appointments a
+		JOIN users u ON a.doctor_id = u.id
+		WHERE a.patient_id = $1 AND a.start_time ` + comparison + ` $2
+		ORDER BY a.start_time DESC
+	`
 	rows, err := db.Query(query, patientID, time.Now())
 	if err != nil {
 		return nil, err
@@ -384,18 +384,22 @@ func getAppointmentsByTime(db *sql.DB, patientID int, comparison string) ([]map[
 		var status string
 		var doctorName sql.NullString
 		var notes sql.NullString
+		var price sql.NullFloat64
+		var paymentStatus sql.NullString
 
-		if err := rows.Scan(&appID, &startTime, &status, &notes, &doctorName); err != nil {
+		if err := rows.Scan(&appID, &startTime, &status, &notes, &doctorName, &price, &paymentStatus); err != nil {
 			log.Printf("Erro ao escanear linha de consulta: %v", err)
 			continue
 		}
 
 		appointmentData := map[string]interface{}{
-			"ID":         appID,
-			"StartTime":  startTime,
-			"Status":     status,
-			"DoctorName": doctorName.String,
-			"Notes":      notes.String,
+			"ID":            appID,
+			"StartTime":     startTime,
+			"Status":        status,
+			"DoctorName":    doctorName.String,
+			"Notes":         notes.String,
+			"Price":         price.Float64,
+			"PaymentStatus": paymentStatus.String,
 		}
 		appointments = append(appointments, appointmentData)
 	}
@@ -427,4 +431,21 @@ func (h *SecretariaHandler) ShowPatientToken(c *gin.Context) {
 		"PortalURL": portalURL,
 		"ActiveNav": "new_patient",
 	})
+}
+
+// handlers/secretaria_handlers.go
+
+// MarkAppointmentAsPaid atualiza o status de pagamento de uma consulta para 'pago'.
+func (h *SecretariaHandler) MarkAppointmentAsPaid(c *gin.Context) {
+    appointmentID := c.Param("id")
+    patientID := c.Query("patient_id") // Precisamos saber para qual paciente voltar
+
+    query := `UPDATE appointments SET payment_status = 'pago', updated_at = $1 WHERE id = $2`
+    _, err := h.DB.Exec(query, time.Now(), appointmentID)
+    if err != nil {
+        log.Printf("ERRO ao marcar consulta como paga (secretária): %v", err)
+    }
+
+    // Redireciona de volta para a página de perfil do paciente
+    c.Redirect(http.StatusFound, "/secretaria/patients/profile/"+patientID)
 }

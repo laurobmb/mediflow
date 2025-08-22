@@ -174,7 +174,8 @@ func main() {
 		secretariaGroup.GET("/patients/search", secretariaHandler.SearchPatientsAPI)
 		secretariaGroup.GET("/appointments/edit/:id", secretariaHandler.GetEditAppointmentForm)
 		secretariaGroup.POST("/appointments/edit/:id", secretariaHandler.PostEditAppointment)
-        secretariaGroup.GET("/pacientes/token/:id", secretariaHandler.ShowPatientToken) // Adicionar esta rota		
+        secretariaGroup.GET("/pacientes/token/:id", secretariaHandler.ShowPatientToken)
+		secretariaGroup.GET("/appointments/mark-as-paid/:id", secretariaHandler.MarkAppointmentAsPaid)		
 	}
 
 	terapeutaGroup := router.Group("/terapeuta", AuthRequired(), RoleRequired("terapeuta"))
@@ -209,6 +210,7 @@ func main() {
 		adminGroup.GET("/appointments/edit/:id", adminHandler.GetEditAppointmentForm)
 		adminGroup.POST("/appointments/edit/:id", adminHandler.PostEditAppointment)
 		adminGroup.GET("/appointments/cancel/:id", adminHandler.CancelAppointment)
+		adminGroup.GET("/appointments/mark-as-paid/:id", adminHandler.MarkAppointmentAsPaid)		
 	}
 
 	api := router.Group("/api/v1", AuthRequired())

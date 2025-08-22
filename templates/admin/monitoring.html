@@ -1,6 +1,5 @@
 {{define "head"}}
     <link rel="stylesheet" href="/static/css/admin_layout.css">
-    <!-- Carrega o novo CSS específico para esta página -->
     <link rel="stylesheet" href="/static/css/monitoring.css">
 {{end}}
 
@@ -20,29 +19,23 @@
         </div>
 
         <div class="dashboard-grid">
-            <div class="dashboard-card">
-                <h3>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    Próximas 10 Consultas
-                </h3>
-                <div>
-                    {{range .Data.UpcomingAppointments}}
-                    <div class="appointment-list-item">
-                        <div class="appointment-details">
-                            <strong>{{.PatientName}}</strong>
-                            <small>{{.DoctorName}}</small>
-                        </div>
-                        <span class="appointment-time">{{.StartTime.Format "02/01 às 15:04"}}</span>
-                    </div>
-                    {{else}}
-                    <p>Nenhuma consulta futura.</p>
-                    {{end}}
-                </div>
-            </div>
 
             <div class="dashboard-card">
                 <h3>
-                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    Resumo Financeiro ({{.Data.ActiveDaysFilter}} dias)
+                </h3>
+                <div class="stat-item">
+                    <span>Faturamento Realizado</span>
+                    <span class="stat-value" style="color: #28a745;">R$ {{printf "%.2f" .Data.TotalRevenue}}</span>
+                </div>
+                <div class="stat-item">
+                    <span>Valor a Receber</span>
+                    <span class="stat-value" style="color: #ffc107;">R$ {{printf "%.2f" .Data.PendingPaymentsValue}}</span>
+                </div>
+            </div> <div class="dashboard-card">
+                <h3>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
                     Resumo do Período
                 </h3>
                 <div class="stat-item">
@@ -53,52 +46,27 @@
                     <span>Novos Pacientes</span>
                     <span class="stat-value">{{.Data.TotalNewPatients}}</span>
                 </div>
-            </div>
-
-            <div class="dashboard-card">
+            </div> <div class="dashboard-card">
                 <h3>
-                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                    Fontes de Aquisição
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Próximas 10 Consultas
                 </h3>
-                {{range $source, $count := .Data.HowFoundStats}}
-                <div class="bar-chart-item">
-                    <div class="bar-label">{{$source}}</div>
-                    <div class="bar-container">
-                        <div class="bar" data-width="{{printf "%.0f" (percentage $count $.Data.TotalNewPatients)}}">{{$count}}</div>
-                    </div>
+                <div>
+                    {{if .Data.UpcomingAppointments}}
+                        {{range .Data.UpcomingAppointments}}
+                        <div class="appointment-list-item">
+                            <div class="appointment-details">
+                                <strong>{{.PatientName}}</strong>
+                                <small>{{.DoctorName}}</small>
+                            </div>
+                            <span class="appointment-time">{{.StartTime.Format "02/01 às 15:04"}}</span>
+                        </div>
+                        {{end}}
+                    {{else}}
+                    <p>Nenhuma consulta futura.</p>
+                    {{end}}
                 </div>
-                {{else}}
-                <p>Nenhum dado de aquisição no período.</p>
-                {{end}}
-            </div>
-
-            <div class="dashboard-card">
-                <h3>
-                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    Perfil dos Pacientes (Novos)
-                </h3>
-                <div class="stat-item"><span>Praticam Atividade Física</span><span class="stat-value">{{index .Data.ProfileStats "PhysicalActivity"}}</span></div>
-                <div class="stat-item"><span>Fumantes (ou ex)</span><span class="stat-value">{{index .Data.ProfileStats "Smoker"}}</span></div>
-                <div class="stat-item"><span>Consomem Álcool</span><span class="stat-value">{{index .Data.ProfileStats "Alcohol"}}</span></div>
-                <div class="stat-item"><span>Com Esforço Repetitivo</span><span class="stat-value">{{index .Data.ProfileStats "RepetitiveEffort"}}</span></div>
-                <div class="stat-item"><span>Com Transtorno Mental</span><span class="stat-value">{{index .Data.ProfileStats "MentalDisorder"}}</span></div>
-                <div class="stat-item"><span>Usam Medicação</span><span class="stat-value">{{index .Data.ProfileStats "Medication"}}</span></div>
-            </div>
-
-            <div class="dashboard-card">
-                <h3>
-                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                    Média Emocional (Novos Pacientes)
-                </h3>
-                <div class="stat-item"><span>Ansiedade</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Anxiety")}} / 10</span></div>
-                <div class="stat-item"><span>Raiva</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Anger")}} / 10</span></div>
-                <div class="stat-item"><span>Medo</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Fear")}} / 10</span></div>
-                <div class="stat-item"><span>Tristeza</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Sadness")}} / 10</span></div>
-                <div class="stat-item"><span>Alegria</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Joy")}} / 10</span></div>
-                <div class="stat-item"><span>Energia</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Energy")}} / 10</span></div>
-            </div>
-
-            <div class="dashboard-card">
+            </div> <div class="dashboard-card">
                 <h3>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="22" y1="8" x2="22" y2="14"></line><line x1="19" y1="11" x2="25" y2="11"></line></svg>
                     Consentimentos Pendentes
@@ -117,22 +85,57 @@
                         {{end}}
                     </div>
                     {{end}}
-                {{else}}
+                    {{else}}
                     <p style="text-align: center; color: #28a745; padding: 20px 0;">
                         ✅ Todos os pacientes forneceram o consentimento.
                     </p>
-                {{end}}
+                    {{end}}
                 </div>
-            </div>            
-
-
-        </div>
+            </div> <div class="dashboard-card">
+                <h3>
+                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    Perfil dos Pacientes (Novos)
+                </h3>
+                <div class="stat-item"><span>Praticam Atividade Física</span><span class="stat-value">{{index .Data.ProfileStats "PhysicalActivity"}}</span></div>
+                <div class="stat-item"><span>Fumantes (ou ex)</span><span class="stat-value">{{index .Data.ProfileStats "Smoker"}}</span></div>
+                <div class="stat-item"><span>Consomem Álcool</span><span class="stat-value">{{index .Data.ProfileStats "Alcohol"}}</span></div>
+                <div class="stat-item"><span>Com Esforço Repetitivo</span><span class="stat-value">{{index .Data.ProfileStats "RepetitiveEffort"}}</span></div>
+                <div class="stat-item"><span>Com Transtorno Mental</span><span class="stat-value">{{index .Data.ProfileStats "MentalDisorder"}}</span></div>
+                <div class="stat-item"><span>Usam Medicação</span><span class="stat-value">{{index .Data.ProfileStats "Medication"}}</span></div>
+            </div> <div class="dashboard-card">
+                <h3>
+                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    Média Emocional (Novos Pacientes)
+                </h3>
+                <div class="stat-item"><span>Ansiedade</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Anxiety")}} / 10</span></div>
+                <div class="stat-item"><span>Raiva</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Anger")}} / 10</span></div>
+                <div class="stat-item"><span>Medo</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Fear")}} / 10</span></div>
+                <div class="stat-item"><span>Tristeza</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Sadness")}} / 10</span></div>
+                <div class="stat-item"><span>Alegria</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Joy")}} / 10</span></div>
+                <div class="stat-item"><span>Energia</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Energy")}} / 10</span></div>
+            </div> <div class="dashboard-card" style="grid-column: 1 / -1;">
+                <h3>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                    Fontes de Aquisição
+                </h3>
+                {{if .Data.HowFoundStats}}
+                    {{range $source, $count := .Data.HowFoundStats}}
+                    <div class="bar-chart-item">
+                        <div class="bar-label">{{$source}}</div>
+                        <div class="bar-container">
+                            <div class="bar" data-width="{{printf "%.0f" (percentage $count $.Data.TotalNewPatients)}}">{{$count}}</div>
+                        </div>
+                    </div>
+                    {{end}}
+                {{else}}
+                <p>Nenhum dado de aquisição no período.</p>
+                {{end}}
+            </div> </div>
     </div>
 </div>
 {{end}}
 
 {{define "scripts"}}
-    <!-- Carrega o novo JavaScript específico para esta página -->
     <script src="/static/js/monitoring.js"></script>
     <script>
         function showConsentLink(token) {

@@ -30,6 +30,8 @@ type MonitoringData struct {
 	ActiveDaysFilter     int
 	TotalNewPatients     int
 	PendingConsentPatients []PendingConsentPatient
+    TotalRevenue         float64 // Faturamento Total no Período
+    PendingPaymentsValue float64 // Valor a Receber	
 }
 
 // --- Funções de Gestão de Utilizadores ---
@@ -760,15 +762,46 @@ func (h *AdminHandler) getAppointmentsByTime(patientID int, comparison string) (
 func (h *AdminHandler) SystemMonitoring(c *gin.Context) {
     daysStr := c.DefaultQuery("days", "7")
     days, _ := strconv.Atoi(daysStr)
+
     if days == 0 {
         days = 7
     }
+
     startDate := time.Now().AddDate(0, 0, -days)
 
     data := MonitoringData{
         ActiveDaysFilter: days,
     }
 
+    // --- NOVA LÓGICA PARA KPIs FINANCEIRAS ---
+
+    // 1. Calcular Faturamento Total no Período (soma do preço de todas as consultas pagas)
+    var totalRevenue sql.NullFloat64
+    revenueQuery := `
+        SELECT SUM(price) FROM appointments
+        WHERE payment_status = 'pago' AND start_time >= $1`
+    err := h.DB.QueryRow(revenueQuery, startDate).Scan(&totalRevenue)
+    if err != nil {
+        log.Printf("Erro ao calcular faturamento total: %v", err)
+    }
+    if totalRevenue.Valid {
+        data.TotalRevenue = totalRevenue.Float64
+    }
+
+    // 2. Calcular Valor a Receber (soma do preço de consultas concluídas mas com pagamento pendente)
+    var pendingValue sql.NullFloat64
+    pendingQuery := `
+        SELECT SUM(price) FROM appointments
+        WHERE status = 'concluido' AND payment_status = 'pendente' AND start_time >= $1`
+    err = h.DB.QueryRow(pendingQuery, startDate).Scan(&pendingValue)
+    if err != nil {
+        log.Printf("Erro ao calcular pagamentos pendentes: %v", err)
+    }
+    if pendingValue.Valid {
+        data.PendingPaymentsValue = pendingValue.Float64
+    }
+    // --- FIM DA NOVA LÓGICA ---
+		
 	// --- LÓGICA ATUALIZADA PARA BUSCAR PACIENTES PENDENTES ---
 	var pendingPatients []PendingConsentPatient
 	// Query agora busca também o access_token
@@ -1036,4 +1069,21 @@ func (h *AdminHandler) CancelAppointment(c *gin.Context) {
 	}
 
 	c.Redirect(http.StatusFound, "/admin/patients/profile/"+patientID)
+}
+
+// handlers/admin_handlers.go
+
+// MarkAppointmentAsPaid atualiza o status de pagamento de uma consulta para 'pago'.
+func (h *AdminHandler) MarkAppointmentAsPaid(c *gin.Context) {
+    appointmentID := c.Param("id")
+    patientID := c.Query("patient_id") // Precisamos saber para qual paciente voltar
+
+    query := `UPDATE appointments SET payment_status = 'pago', updated_at = $1 WHERE id = $2`
+    _, err := h.DB.Exec(query, time.Now(), appointmentID)
+    if err != nil {
+        log.Printf("ERRO ao marcar consulta como paga (admin): %v", err)
+    }
+
+    // Redireciona de volta para a página de perfil do paciente do admin
+    c.Redirect(http.StatusFound, "/admin/patients/profile/"+patientID)
 }

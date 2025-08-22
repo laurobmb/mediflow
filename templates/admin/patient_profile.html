@@ -31,13 +31,37 @@
         <fieldset>
             <legend>Consultas Agendadas</legend>
             <table class="user-table">
-                <thead><tr><th>Data e Hora</th><th>Médico</th><th>Valor (R$)</th><th>Pagamento</th><th>Status</th><th>Ações</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Médico</th>
+                        <th>Valor (R$)</th>
+                        <th>Pagamento</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {{range .FutureAppointments}}
                     <tr>
-                        <td>{{.StartTime.Format "02/01/2006 15:04"}}</td><td>{{.DoctorName}}</td>
-                        <td>{{printf "%.2f" .Price}}</td><td>{{.PaymentStatus}}</td><td>{{.Status}}</td>
-                        <td class="action-links"><a href="/admin/appointments/edit/{{.ID}}?patient_id={{$.Patient.ID}}" class="edit-link">Editar</a><a href="/admin/appointments/cancel/{{.ID}}?patient_id={{$.Patient.ID}}" class="delete-link" onclick="return confirm('Tem certeza?');">Desmarcar</a></td>
+                        <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
+                        <td>{{.DoctorName}}</td>
+                        <td>{{printf "%.2f" .Price}}</td>
+                        <td>
+                            {{if eq .PaymentStatus "pago"}}
+                                <span style="color: green;">✅ {{.PaymentStatus}}</span>
+                            {{else}}
+                                <span style="color: orange;">❌ {{.PaymentStatus}}</span>
+                            {{end}}
+                        </td>
+                        <td>{{.Status}}</td>
+                        <td class="action-links">
+                            {{if eq .PaymentStatus "pendente"}}
+                                <a href="/admin/appointments/mark-as-paid/{{.ID}}?patient_id={{$.Patient.ID}}" class="view-link-btn" style="background-color: #d1e7dd; border-color: #badbcc; color: #0f5132;">Marcar como Pago</a>
+                            {{end}}
+                            <a href="/admin/appointments/edit/{{.ID}}?patient_id={{$.Patient.ID}}" class="edit-link">Editar</a>
+                            <a href="/admin/appointments/cancel/{{.ID}}?patient_id={{$.Patient.ID}}" class="delete-link" onclick="return confirm('Tem certeza?');">Desmarcar</a>
+                        </td>
                     </tr>
                     {{else}}
                     <tr><td colspan="6" style="text-align: center;">Nenhuma consulta futura agendada.</td></tr>
@@ -45,19 +69,36 @@
                 </tbody>
             </table>
         </fieldset>
-
+    
         <fieldset>
             <legend>Histórico de Consultas</legend>
             <table class="user-table">
-                <thead><tr><th>Data e Hora</th><th>Médico</th><th>Valor (R$)</th><th>Pagamento</th><th>Status</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Médico</th>
+                        <th>Valor (R$)</th>
+                        <th>Pagamento</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {{range .PastAppointments}}
                     <tr>
-                        <td>{{.StartTime.Format "02/01/2006 15:04"}}</td><td>{{.DoctorName}}</td>
-                        <td>{{printf "%.2f" .Price}}</td><td>{{.PaymentStatus}}</td><td>{{.Status}}</td>
+                        <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
+                        <td>{{.DoctorName}}</td>
+                        <td>{{printf "%.2f" .Price}}</td>
+                        <td>
+                            {{if eq .PaymentStatus "pago"}}
+                                <span style="color: green;">✅ {{.PaymentStatus}}</span>
+                            {{else}}
+                                <span style="color: orange;">❌ {{.PaymentStatus}}</span>
+                            {{end}}
+                        </td>
+                        <td>{{.Status}}</td>
                     </tr>
                     {{else}}
-                    <tr><td colspan="5" style="text-align: center;">Nenhum histórico de consultas encontrado.</td></tr>
+                    <tr><td colspan="5" style="text-align: center;">Nenhum histórico de consultas.</td></tr>
                     {{end}}
                 </tbody>
             </table>
