@@ -36,82 +36,87 @@ function toggleMentalDisorderTreatment(show) {
     }
 }
 
-// Inicializa o estado dos campos dinâmicos ao carregar a página
+// Inicializa o estado dos campos dinâmicos e o cálculo de idade ao carregar a página
 document.addEventListener('DOMContentLoaded', (event) => {
-    // Filhos
-    const childrenYes = document.querySelector('input[name="children"][value="Sim"]');
-    if (!childrenYes || !childrenYes.checked) {
-        toggleChildrenQty(false);
-    }
 
-    // Esforço Repetitivo
-    const repetitiveEffortYes = document.querySelector('input[name="repetitive_effort"][value="Sim"]');
-    if (!repetitiveEffortYes || !repetitiveEffortYes.checked) {
-        toggleField('repetitive_effort_spec', false);
-    }
+    // --- INICIALIZAÇÃO ROBUSTA DE CAMPOS DINÂMICOS ---
+    // Em vez de um bloco de código para cada campo, usamos uma configuração.
+    // Para adicionar um novo campo, basta adicionar um novo objeto a esta lista.
+    const dynamicFieldsConfig = [
+        { radioName: 'children', triggerValue: 'Sim', targetId: 'children_qty_group', toggleFunction: toggleChildrenQty },
+        { radioName: 'repetitive_effort', triggerValue: 'Sim', targetId: 'repetitive_effort_spec', toggleFunction: toggleField },
+        { radioName: 'physical_activity', triggerValue: 'Sim', targetId: 'physical_activity_spec', toggleFunction: toggleField },
+        { radioName: 'alcohol', triggerValue: 'Sim', targetId: 'alcohol_frequency', toggleFunction: toggleField },
+        { radioName: 'mental_disorder', triggerValue: 'Sim', targetId: 'mental_disorder_treatment_group', toggleFunction: toggleMentalDisorderTreatment },
+        { radioName: 'mental_disorder_treatment', triggerValue: 'Sim', targetId: 'mental_disorder_details', toggleFunction: toggleField },
+        { radioName: 'religion', triggerValue: 'Sim', targetId: 'religion_details', toggleFunction: toggleField },
+        { radioName: 'medication', triggerValue: 'Sim', targetId: 'medication_details', toggleFunction: toggleField },
+        { radioName: 'surgery', triggerValue: 'Sim', targetId: 'surgery_details', toggleFunction: toggleField },
+        { radioName: 'allergies', triggerValue: 'Sim', targetId: 'allergies_details', toggleFunction: toggleField },
+        { radioName: 'how_found', triggerValue: 'Indicação de conhecido', targetId: 'referral_name', toggleFunction: toggleField },
+        { radioName: 'how_found', triggerValue: 'Outro', targetId: 'other_source', toggleFunction: toggleField },
+    ];
 
-    // Atividade Física
-    const physicalActivityYes = document.querySelector('input[name="physical_activity"][value="Sim"]');
-    if (!physicalActivityYes || !physicalActivityYes.checked) {
-        toggleField('physical_activity_spec', false);
-    }
+    dynamicFieldsConfig.forEach(config => {
+        const radios = document.querySelectorAll(`input[name="${config.radioName}"]`);
+        let initiallyShown = false;
 
-    // Fumante
+        radios.forEach(radio => {
+            // Verifica o estado inicial ao carregar a página
+            if (radio.checked && radio.value === config.triggerValue) {
+                initiallyShown = true;
+            }
+            // Adiciona o evento de mudança
+            radio.addEventListener('change', () => {
+                const shouldShow = document.querySelector(`input[name="${config.radioName}"]:checked`).value === config.triggerValue;
+                config.toggleFunction(config.targetId, shouldShow);
+            });
+        });
+
+        // Define o estado inicial do campo alvo
+        config.toggleFunction(config.targetId, initiallyShown);
+    });
+
+    // Lógica especial para o campo "Fumante", que tem múltiplos gatilhos
     const smokerRadios = document.querySelectorAll('input[name="smoker"]');
-    let smokerChecked = false;
-    smokerRadios.forEach(radio => { if (radio.checked && radio.value !== 'Não') smokerChecked = true; });
-    if (!smokerChecked) {
-        toggleField('smoker_time', false);
+    const smokerTimeField = document.getElementById('smoker_time');
+    if (smokerRadios.length > 0 && smokerTimeField) {
+        const updateSmokerField = () => {
+            const selected = document.querySelector('input[name="smoker"]:checked');
+            const show = selected && selected.value !== 'Não';
+            toggleField('smoker_time', show);
+        };
+        smokerRadios.forEach(radio => radio.addEventListener('change', updateSmokerField));
+        updateSmokerField(); // Verifica o estado inicial
     }
 
-    // Bebidas Alcoólicas
-    const alcoholYes = document.querySelector('input[name="alcohol"][value="Sim"]');
-    if (!alcoholYes || !alcoholYes.checked) {
-        toggleField('alcohol_frequency', false);
-    }
 
-    // Transtorno mental
-    const mentalDisorderYes = document.querySelector('input[name="mental_disorder"][value="Sim"]');
-    if (!mentalDisorderYes || !mentalDisorderYes.checked) {
-        toggleMentalDisorderTreatment(false);
-    } else { // Se "Sim" estiver marcado, verifica o tratamento
-        const treatmentYes = document.querySelector('input[name="mental_disorder_treatment"][value="Sim"]');
-        if (!treatmentYes || !treatmentYes.checked) {
-            toggleField('mental_disorder_details', false);
-        }
-    }
+    // --- FUNCIONALIDADE: CÁLCULO AUTOMÁTICO DE IDADE ---
+    const dobInput = document.getElementById('dob');
+    const ageInput = document.getElementById('age');
 
-    // Religião
-    const religionYes = document.querySelector('input[name="religion"][value="Sim"]');
-    if (!religionYes || !religionYes.checked) {
-        toggleField('religion_details', false);
-    }
+    if (dobInput && ageInput) {
+        // Função para calcular a idade
+        const calculateAge = () => {
+            const dobValue = dobInput.value;
+            if (dobValue) {
+                const birthDate = new Date(dobValue);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                ageInput.value = age >= 0 ? age : '';
+            } else {
+                ageInput.value = '';
+            }
+        };
 
-    // Medicamentos
-    const medicationYes = document.querySelector('input[name="medication"][value="Sim"]');
-    if (!medicationYes || !medicationYes.checked) {
-        toggleField('medication_details', false);
-    }
+        // Adiciona o evento para calcular a idade sempre que a data for alterada
+        dobInput.addEventListener('change', calculateAge);
 
-    // Cirurgias
-    const surgeryYes = document.querySelector('input[name="surgery"][value="Sim"]');
-    if (!surgeryYes || !surgeryYes.checked) {
-        toggleField('surgery_details', false);
-    }
-
-    // Alergias
-    const allergiesYes = document.querySelector('input[name="allergies"][value="Sim"]');
-    if (!allergiesYes || !allergiesYes.checked) {
-        toggleField('allergies_details', false);
-    }
-
-    // Como Encontrou (indicação e outro)
-    const howFoundReferral = document.querySelector('input[name="how_found"][value="Indicação de conhecido"]');
-    if (!howFoundReferral || !howFoundReferral.checked) {
-        toggleField('referral_name', false);
-    }
-    const howFoundOther = document.querySelector('input[name="how_found"][value="Outro"]');
-    if (!howFoundOther || !howFoundOther.checked) {
-        toggleField('other_source', false);
+        // Calcula a idade ao carregar a página, caso a data já esteja preenchida (no modo de edição)
+        calculateAge();
     }
 });
