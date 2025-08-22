@@ -135,9 +135,9 @@ func main() {
 		secretariaGroup.POST("/appointments/edit/:id", secretariaHandler.PostEditAppointment)
 	}
 
-	medicoGroup := router.Group("/medico", AuthRequired())
+	terapeutaGroup := router.Group("/terapeuta", AuthRequired())
 	{
-		medicoGroup.GET("/dashboard", handlers.MedicoDashboard)
+		terapeutaGroup.GET("/dashboard", handlers.TerapeutaDashboard)
 	}
 
 	adminGroup := router.Group("/admin", AuthRequired())

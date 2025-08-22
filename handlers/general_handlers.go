@@ -10,10 +10,10 @@ func DashboardHandler(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/login")
 }
 
-// MedicoDashboard renderiza a dashboard do médico.
-func MedicoDashboard(c *gin.Context) {
+// TerapeutaDashboard renderiza a dashboard do médico.
+func TerapeutaDashboard(c *gin.Context) {
 	// CORREÇÃO: Usar o caminho completo do template
-	c.HTML(http.StatusOK, "medico/medico_dashboard.html", gin.H{"Title": "Dashboard do Médico"})
+	c.HTML(http.StatusOK, "terapeuta/terapeuta_dashboard.html", gin.H{"Title": "Dashboard do Médico"})
 }
 
 // SecretariaDashboard foi movida para secretaria_handlers.go como ViewAgenda.

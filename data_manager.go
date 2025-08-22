@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
    name VARCHAR(255) NOT NULL,
    email VARCHAR(255) UNIQUE NOT NULL,
    password_hash VARCHAR(255) NOT NULL,
-   user_type VARCHAR(50) NOT NULL CHECK (user_type IN ('medico', 'secretaria', 'admin')),
+   user_type VARCHAR(50) NOT NULL CHECK (user_type IN ('terapeuta', 'secretaria', 'admin')),
    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS consultation_summaries (
 
 func main() {
 	initDB := flag.Bool("init", false, "Inicializa o banco de dados e cria tabelas.")
-	createUsers := flag.Bool("create-users", false, "Cria usuários de exemplo (admin, medico, secretaria).")
+	createUsers := flag.Bool("create-users", false, "Cria usuários de exemplo (admin, terapeuta, secretaria).")
 	populateDB := flag.Bool("populate", false, "Popula o banco de dados com 45 pacientes de teste e suas consultas.")
 	flag.Parse()
 
@@ -160,7 +160,7 @@ func main() {
 func populateData(db *sql.DB, patientCount int) error {
 	rand.Seed(time.Now().UnixNano())
 
-	rows, err := db.Query("SELECT id FROM users WHERE user_type = 'medico'")
+	rows, err := db.Query("SELECT id FROM users WHERE user_type = 'terapeuta'")
 	if err != nil {
 		return fmt.Errorf("falha ao buscar médicos: %w", err)
 	}
@@ -311,4 +311,4 @@ func populateData(db *sql.DB, patientCount int) error {
 // ... (as funções newDBConnection, initializeDB, e createDefaultUsers permanecem as mesmas) ...
 func newDBConnection() (*sql.DB, error) { dbType := os.Getenv("DB_TYPE"); dbHost := os.Getenv("DB_HOST"); dbPort := os.Getenv("DB_PORT"); dbUser := os.Getenv("DB_USER"); dbPass := os.Getenv("DB_PASS"); dbName := os.Getenv("DB_NAME"); connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPass, dbName); db, err := sql.Open(dbType, connStr); if err != nil { return nil, err }; if err = db.Ping(); err != nil { return nil, err }; return db, nil }
 func initializeDB(db *sql.DB) error { _, err := db.Exec(createTableSQL); return err }
-func createDefaultUsers(db *sql.DB) error { users := []struct { name string; email string; password string; userType string }{ {"Admin User", "admin@mediflow.com", "senha123", "admin"}, {"Dr. Exemplo", "medico@mediflow.com", "senha123", "medico"}, {"Secretaria Exemplo", "secretaria@mediflow.com", "senha123", "secretaria"}, }; for _, u := range users { hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost); if err != nil { return fmt.Errorf("falha ao gerar hash para %s: %w", u.email, err) }; query := ` INSERT INTO users (name, email, password_hash, user_type) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING; `; _, err = db.Exec(query, u.name, u.email, string(hashedPassword), u.userType); if err != nil { return fmt.Errorf("falha ao inserir usuário %s: %w", u.email, err) } }; return nil }
+func createDefaultUsers(db *sql.DB) error { users := []struct { name string; email string; password string; userType string }{ {"Admin User", "admin@mediflow.com", "senha123", "admin"}, {"Dr. Exemplo", "terapeuta@mediflow.com", "senha123", "terapeuta"}, {"Secretaria Exemplo", "secretaria@mediflow.com", "senha123", "secretaria"}, }; for _, u := range users { hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost); if err != nil { return fmt.Errorf("falha ao gerar hash para %s: %w", u.email, err) }; query := ` INSERT INTO users (name, email, password_hash, user_type) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING; `; _, err = db.Exec(query, u.name, u.email, string(hashedPassword), u.userType); if err != nil { return fmt.Errorf("falha ao inserir usuário %s: %w", u.email, err) } }; return nil }

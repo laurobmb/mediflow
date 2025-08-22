@@ -169,7 +169,7 @@ func (h *SecretariaHandler) GetPatientProfile(c *gin.Context) {
 	pastAppointments, _ := getAppointmentsByTime(h.DB, patientID, "<")
 
 	var doctors []storage.User
-	rows, _ := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'medico' ORDER BY name ASC")
+	rows, _ := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'terapeuta' ORDER BY name ASC")
 	if rows != nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -299,7 +299,7 @@ func (h *SecretariaHandler) GetEditAppointmentForm(c *gin.Context) {
 	}
 
 	var doctors []storage.User
-	rows, _ := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'medico'")
+	rows, _ := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'terapeuta'")
 	if rows != nil {
 		defer rows.Close()
 		for rows.Next() {

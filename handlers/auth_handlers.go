@@ -28,8 +28,8 @@ func (h *AuthHandler) GetLogin(c *gin.Context) {
 	if session.Get("user_id") != nil {
 		userType := session.Get("user_type")
 		switch userType {
-		case "medico":
-			c.Redirect(http.StatusFound, "/medico/dashboard")
+		case "terapeuta":
+			c.Redirect(http.StatusFound, "/terapeuta/dashboard")
 		case "secretaria":
 			c.Redirect(http.StatusFound, "/secretaria/dashboard")
 		case "admin":
@@ -91,8 +91,8 @@ func (h *AuthHandler) PostLogin(c *gin.Context) {
 	}
 
 	switch user.UserType {
-	case "medico":
-		c.Redirect(http.StatusFound, "/medico/dashboard")
+	case "terapeuta":
+		c.Redirect(http.StatusFound, "/terapeuta/dashboard")
 	case "secretaria":
 		c.Redirect(http.StatusFound, "/secretaria/dashboard")
 	case "admin":

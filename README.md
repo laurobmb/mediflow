@@ -97,5 +97,5 @@ O servidor estará a correr e acessível no endereço `http://localhost:8080` (o
 
   - **Admin:** `admin@mediflow.com` / `senha123`
   - **Secretária:** `secretaria@mediflow.com` / `senha123`
-  - **Médico:** `medico@mediflow.com` / `senha123`
+  - **Médico:** `terapeuta@mediflow.com` / `senha123`
 

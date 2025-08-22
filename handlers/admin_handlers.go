@@ -51,7 +51,7 @@ func (h *AdminHandler) ViewUsers(c *gin.Context) {
 }
 
 func (h *AdminHandler) GetNewUserForm(c *gin.Context) {
-	c.HTML(http.StatusOK, "admin/user_form.html", gin.H{"Title": "Adicionar Novo Usuário", "Action": "/admin/users/new", "IsNew": true, "UserTypes": []string{"admin", "medico", "secretaria"}, "ActiveNav": "users"})
+	c.HTML(http.StatusOK, "admin/user_form.html", gin.H{"Title": "Adicionar Novo Usuário", "Action": "/admin/users/new", "IsNew": true, "UserTypes": []string{"admin", "terapeuta", "secretaria"}, "ActiveNav": "users"})
 }
 
 func (h *AdminHandler) PostNewUser(c *gin.Context) {
@@ -90,7 +90,7 @@ func (h *AdminHandler) GetEditUserForm(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/admin/users")
 		return
 	}
-	c.HTML(http.StatusOK, "admin/user_form.html", gin.H{"Title": "Editar Usuário", "Action": "/admin/users/edit/" + idStr, "IsNew": false, "User": user, "UserTypes": []string{"admin", "medico", "secretaria"}, "ActiveNav": "users"})
+	c.HTML(http.StatusOK, "admin/user_form.html", gin.H{"Title": "Editar Usuário", "Action": "/admin/users/edit/" + idStr, "IsNew": false, "User": user, "UserTypes": []string{"admin", "terapeuta", "secretaria"}, "ActiveNav": "users"})
 }
 
 func (h *AdminHandler) PostEditUser(c *gin.Context) {
@@ -385,7 +385,7 @@ func (h *AdminHandler) GetPatientProfile(c *gin.Context) {
     }
 
     var doctors []storage.User
-    rows, err := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'medico' ORDER BY name ASC")
+    rows, err := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'terapeuta' ORDER BY name ASC")
     if err == nil {
         defer rows.Close()
         for rows.Next() {
