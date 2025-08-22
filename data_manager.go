@@ -8,7 +8,8 @@ import (
 	"math/rand"
 	"os"
 	"time"
-
+	"encoding/hex" // <-- ADICIONE ESTA LINHA
+	
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -109,10 +110,6 @@ func main() {
 	}
 }
 
-// data_manager.go
-
-// data_manager.go
-
 // FUNÇÃO PARA POPULAR O BANCO COM DADOS RICOS E COMPLETOS (VERSÃO FINAL)
 func populateData(db *sql.DB, patientCount int) error {
 	rand.Seed(time.Now().UnixNano())
@@ -135,7 +132,7 @@ func populateData(db *sql.DB, patientCount int) error {
 		return fmt.Errorf("nenhum médico encontrado para associar aos pacientes")
 	}
 
-	// Listas para geração de dados aleatórios
+	// Listas para geração de dados aleatórios (sem alteração)
 	nomes := []string{"Alice", "Bernardo", "Clara", "Davi", "Elena", "Felipe", "Giovanna", "Heitor", "Isadora", "Júlio"}
 	sobrenomes := []string{"Andrade", "Barbosa", "Cardoso", "Dias", "Esteves", "Fernandes", "Gusmão", "Henriques", "Jesus", "Lopes"}
 	cidades := []string{"São Paulo", "Rio de Janeiro", "Belo Horizonte", "Salvador", "Fortaleza"}
@@ -143,8 +140,6 @@ func populateData(db *sql.DB, patientCount int) error {
 	profissoes := []string{"Engenheiro(a)", "Advogado(a)", "Professor(a)", "Médico(a)", "Designer", "Desenvolvedor(a)"}
 	howFoundOptions := []string{"Instagram", "Google", "Indicação de conhecido", "Outro"}
 	simNao := []string{"Sim", "Não"}
-	
-	// DADOS ADICIONADOS PARA COMPLETAR O HISTÓRICO
 	queixas := []string{"Ansiedade constante no trabalho.", "Episódios de tristeza profunda.", "Dificuldades para dormir.", "Ataques de pânico.", "Falta de motivação geral."}
 	historicosQueixa := []string{"Sintomas começaram há cerca de 6 meses, após um período de grande estresse profissional.", "Paciente relata que se sente assim desde a adolescência, mas piorou nos últimos meses.", "Não consegue identificar um gatilho específico, mas a sensação é persistente."}
 	sinaisSintomas := []string{"Insônia, falta de apetite e irritabilidade.", "Apatia, choro fácil e isolamento social.", "Coração acelerado, sudorese e sensação de perigo iminente."}
@@ -158,13 +153,15 @@ func populateData(db *sql.DB, patientCount int) error {
 	}
 	defer tx.Rollback()
 
+	// CORREÇÃO: Adicionamos a coluna access_token ao INSERT
 	patientStmt, err := tx.Prepare(`
 		INSERT INTO patients (
 			name, email, age, dob, phone, mobile, profession, address_city, address_state,
 			how_found, physical_activity, smoker, alcohol, repetitive_effort, mental_disorder, medication,
 			anxiety_level, anger_level, fear_level, sadness_level, joy_level, energy_level, 
-			main_complaint, complaint_history, signs_symptoms, current_treatment, notes
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+			main_complaint, complaint_history, signs_symptoms, current_treatment, notes,
+			access_token 
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
 		RETURNING id`)
 	if err != nil {
 		return err
@@ -178,33 +175,37 @@ func populateData(db *sql.DB, patientCount int) error {
 	defer appointmentStmt.Close()
 
 	for i := 0; i < patientCount; i++ {
+		// ... (geração de dados aleatórios como nome, email, etc. continua igual)
 		nomeCompleto := fmt.Sprintf("%s %s", nomes[rand.Intn(len(nomes))], sobrenomes[rand.Intn(len(sobrenomes))])
 		email := fmt.Sprintf("paciente.%d@example.com", i+1)
 		idade := 20 + rand.Intn(40)
 		dataNascimento := time.Now().AddDate(-idade, rand.Intn(12), rand.Intn(28))
 		cidadeIdx := rand.Intn(len(cidades))
 		telefone := fmt.Sprintf("(%d) 9%d-%d", 11+rand.Intn(88), 8000+rand.Intn(1999), 1000+rand.Intn(8999))
+		
+		// CORREÇÃO: Geramos um token simples para os dados de teste
+		tokenBytes := make([]byte, 16)
+		rand.Read(tokenBytes)
+		token := hex.EncodeToString(tokenBytes)
 
 		var patientID int
+		// CORREÇÃO: Adicionamos o token gerado ao final da lista de argumentos
 		err := patientStmt.QueryRow(
 			nomeCompleto, email, idade, dataNascimento, telefone, telefone,
 			profissoes[rand.Intn(len(profissoes))],
-			cidades[cidadeIdx],
-			estados[cidadeIdx],
+			cidades[cidadeIdx], estados[cidadeIdx],
 			howFoundOptions[rand.Intn(len(howFoundOptions))],
-			simNao[rand.Intn(len(simNao))], // physical_activity
-			simNao[rand.Intn(len(simNao))], // smoker
-			simNao[rand.Intn(len(simNao))], // alcohol
-			simNao[rand.Intn(len(simNao))], // repetitive_effort
-			simNao[rand.Intn(len(simNao))], // mental_disorder
-			simNao[rand.Intn(len(simNao))], // medication
-			rand.Intn(11), rand.Intn(11), rand.Intn(11), rand.Intn(11), rand.Intn(11), rand.Intn(11), // Níveis emocionais
+			simNao[rand.Intn(len(simNao))], simNao[rand.Intn(len(simNao))], simNao[rand.Intn(len(simNao))],
+			simNao[rand.Intn(len(simNao))], simNao[rand.Intn(len(simNao))], simNao[rand.Intn(len(simNao))],
+			rand.Intn(11), rand.Intn(11), rand.Intn(11), rand.Intn(11), rand.Intn(11), rand.Intn(11),
 			queixas[rand.Intn(len(queixas))],
-			historicosQueixa[rand.Intn(len(historicosQueixa))], // DADO NOVO
-			sinaisSintomas[rand.Intn(len(sinaisSintomas))],     // DADO NOVO
-			tratamentosAtuais[rand.Intn(len(tratamentosAtuais))], // DADO NOVO
-			notasMedico[rand.Intn(len(notasMedico))],           // DADO NOVO
+			historicosQueixa[rand.Intn(len(historicosQueixa))],
+			sinaisSintomas[rand.Intn(len(sinaisSintomas))],
+			tratamentosAtuais[rand.Intn(len(tratamentosAtuais))],
+			notasMedico[rand.Intn(len(notasMedico))],
+			token, // Token adicionado aqui
 		).Scan(&patientID)
+
 		if err != nil {
 			return fmt.Errorf("erro ao inserir paciente #%d: %w", i+1, err)
 		}

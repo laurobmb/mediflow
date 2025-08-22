@@ -23,7 +23,7 @@
                 <th>Nome</th>
                 <th>Email</th>
                 <th>Telefone</th>
-                <th>Ações</th>
+                <th>Consentimento</th> <th>Ações</th>
             </tr>
         </thead>
         <tbody>
@@ -33,14 +33,28 @@
                 <td>{{.Name}}</td>
                 <td>{{.Email}}</td>
                 <td>{{.Phone}}</td>
+                <td>
+                    {{if .ConsentGivenAt.Valid}}
+                        <span style="color: green;">✅ Fornecido</span>
+                    {{else}}
+                        <span style="color: orange;">❌ Pendente</span>
+                    {{end}}
+                </td>
                 <td class="action-links">
-                    <a href="/admin/patients/edit/{{.ID}}" class="edit-link">Editar</a>
+                    <a href="/admin/patients/edit/{{.ID}}" class="edit-link">Editar/Prontuário</a>
+
+                    {{if not .ConsentGivenAt.Valid}}
+                        {{if .AccessToken.Valid}}
+                        <button onclick="showConsentLink('{{.AccessToken.String}}')" class="view-link-btn">Ver Link</button>
+                        {{end}}
+                    {{end}}
+                    
                     <a href="/admin/patients/delete/{{.ID}}" class="delete-link" onclick="return confirm('Tem certeza que deseja remover este paciente?');">Remover</a>
                 </td>
             </tr>
             {{else}}
             <tr>
-                <td colspan="5" style="text-align: center; padding: 20px;">Nenhum paciente encontrado.</td>
+                <td colspan="6" style="text-align: center; padding: 20px;">Nenhum paciente encontrado.</td>
             </tr>
             {{end}}
         </tbody>
@@ -90,4 +104,14 @@
 {{define "scripts"}}
     <!-- Carrega o JavaScript específico para esta página -->
     <script src="/static/js/autocomplete.js"></script>
+    <script>
+        function showConsentLink(token) {
+            // Constrói a URL completa usando o host atual do navegador
+            const baseURL = window.location.origin;
+            const portalURL = `${baseURL}/portal/login/${token}`;
+
+            // Exibe um prompt para o usuário com o link, facilitando o "copiar e colar"
+            prompt("Copie o link de consentimento abaixo e envie para o paciente:", portalURL);
+        }
+    </script>    
 {{end}}

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"regexp"   // <-- ADICIONAR IMPORT
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -12,6 +13,13 @@ import (
 
 type PortalHandler struct {
 	DB *sql.DB
+}
+
+// ShowSuccessPage exibe a página de agradecimento.
+func (h *PortalHandler) ShowSuccessPage(c *gin.Context) {
+	c.HTML(http.StatusOK, "portal/success.html", gin.H{
+		"Title": "Sucesso!",
+	})
 }
 
 // ShowTokenLoginPage exibe a página de login por token para o paciente.
@@ -64,6 +72,8 @@ func (h *PortalHandler) ShowConsentForm(c *gin.Context) {
 }
 
 // ProcessConsentForm salva os dados do formulário de consentimento.
+// handlers/portal_handlers.go
+
 func (h *PortalHandler) ProcessConsentForm(c *gin.Context) {
 	session := sessions.Default(c)
 	patientID := session.Get("patient_id")
@@ -71,28 +81,50 @@ func (h *PortalHandler) ProcessConsentForm(c *gin.Context) {
 	consentName := c.PostForm("consent_name_inline")
 	consentCpfRg := c.PostForm("consent_cpf_rg_inline")
 	howFound := c.PostForm("how_found")
+
+	errors := make(map[string]string)
+
+	// Validação do Nome - GARANTA QUE ESTA LINHA USE CRASES ``
+	nameRegex := regexp.MustCompile(`^[\p{L}´]+\s[\p{L}´\s]+$`)
+	if !nameRegex.MatchString(consentName) {
+		errors["Name"] = "Por favor, insira o nome completo, sem números ou caracteres especiais."
+	}
+
+	// Validação do CPF
+	re := regexp.MustCompile(`[^0-9]`)
+	cpfClean := re.ReplaceAllString(consentCpfRg, "")
+	if len(cpfClean) != 11 {
+		errors["CPF"] = "O CPF deve conter exatamente 11 dígitos numéricos."
+	}
 	
+	if len(errors) > 0 {
+		var patient storage.Patient
+		h.DB.QueryRow("SELECT name FROM patients WHERE id = $1", patientID).Scan(&patient.Name)
+		
+		c.HTML(http.StatusBadRequest, "portal/consent_form.html", gin.H{
+			"Title":     "Termo de Consentimento",
+			"Patient":   patient,
+			"Errors":    errors,
+			"NameValue": consentName,
+			"CpfValue":  consentCpfRg,
+		})
+		return
+	}
+
 	query := `UPDATE patients SET 
 		consent_name = $1, consent_cpf_rg = $2, how_found = $3, 
 		consent_given_at = NOW(), consent_date = NOW(), signature_date = NOW()
 		WHERE id = $4`
 
-	_, err := h.DB.Exec(query, consentName, consentCpfRg, howFound, patientID)
+	_, err := h.DB.Exec(query, consentName, cpfClean, howFound, patientID)
 	if err != nil {
 		log.Printf("Erro ao salvar consentimento do paciente %d: %v", patientID, err)
-		// Adicionar página de erro para o paciente
 		return
 	}
 
 	c.Redirect(http.StatusFound, "/portal/success")
 }
 
-// ShowSuccessPage exibe a página de agradecimento.
-func (h *PortalHandler) ShowSuccessPage(c *gin.Context) {
-	c.HTML(http.StatusOK, "portal/success.html", gin.H{
-		"Title": "Sucesso!",
-	})
-}
 
 // AuthPatientRequired é um middleware para proteger as rotas do portal.
 func AuthPatientRequired() gin.HandlerFunc {

@@ -97,6 +97,35 @@
                 <div class="stat-item"><span>Alegria</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Joy")}} / 10</span></div>
                 <div class="stat-item"><span>Energia</span> <span class="stat-value">{{printf "%.1f" (index .Data.EmotionalAverages "Energy")}} / 10</span></div>
             </div>
+
+            <div class="dashboard-card">
+                <h3>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="22" y1="8" x2="22" y2="14"></line><line x1="19" y1="11" x2="25" y2="11"></line></svg>
+                    Consentimentos Pendentes
+                </h3>
+                <div>
+                    {{if .Data.PendingConsentPatients}}
+                    {{range .Data.PendingConsentPatients}}
+                    <div class="appointment-list-item">
+                        <div class="appointment-details">
+                            <a href="/admin/patients/profile/{{.ID}}" style="color: #333; text-decoration: none;">
+                                <strong>{{.Name}}</strong>
+                            </a>
+                        </div>
+                        {{if .AccessToken.Valid}}
+                            <button onclick="showConsentLink('{{.AccessToken.String}}')" class="view-link-btn">Ver Link</button>
+                        {{end}}
+                    </div>
+                    {{end}}
+                {{else}}
+                    <p style="text-align: center; color: #28a745; padding: 20px 0;">
+                        ✅ Todos os pacientes forneceram o consentimento.
+                    </p>
+                {{end}}
+                </div>
+            </div>            
+
+
         </div>
     </div>
 </div>
@@ -105,4 +134,11 @@
 {{define "scripts"}}
     <!-- Carrega o novo JavaScript específico para esta página -->
     <script src="/static/js/monitoring.js"></script>
+    <script>
+        function showConsentLink(token) {
+            const baseURL = window.location.origin;
+            const portalURL = `${baseURL}/portal/login/${token}`;
+            prompt("Copie o link de consentimento abaixo e envie para o paciente:", portalURL);
+        }
+    </script>    
 {{end}}

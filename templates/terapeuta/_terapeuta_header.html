@@ -1,0 +1,8 @@
+{{define "_terapeuta_header.html"}}
+<div class="admin-header"> <div class="logo-area">Terapeuta</div>
+    <div class="main-actions">
+        <a href="/terapeuta/dashboard" {{if eq .ActiveNav "dashboard"}}class="active"{{end}}>Dashboard</a>
+        <a href="/logout">Sair</a>
+    </div>
+</div>
+{{end}}

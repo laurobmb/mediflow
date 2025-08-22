@@ -29,6 +29,7 @@ type MonitoringData struct {
 	EmotionalAverages    map[string]float64
 	ActiveDaysFilter     int
 	TotalNewPatients     int
+	PendingConsentPatients []PendingConsentPatient
 }
 
 // --- Funções de Gestão de Utilizadores ---
@@ -148,33 +149,47 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 	session := sessions.Default(c)
 
 	// --- LÓGICA ATUALIZADA ---
-	// 1. Verificar se o usuário é um médico com registros associados.
-	var count int
-	query := `SELECT COUNT(*) FROM patient_records WHERE doctor_id = $1`
-	err := h.DB.QueryRow(query, id).Scan(&count)
+	// Antes de apagar, verificamos duas dependências: prontuários e agendamentos.
 
-	if err == nil && count > 0 {
-		// 2. Se houver registros, impedir a exclusão e enviar uma mensagem de erro.
-		message := fmt.Sprintf("Não é possível excluir este usuário, pois ele é responsável por %d registro(s) de prontuário. Para excluí-lo, os registros precisam ser reatribuídos a outro profissional.", count)
+	// Verificação 1: Checar se o usuário tem registros de prontuário.
+	var recordCount int
+	recordQuery := `SELECT COUNT(*) FROM patient_records WHERE doctor_id = $1`
+	err := h.DB.QueryRow(recordQuery, id).Scan(&recordCount)
+
+	// Se houver registros, bloqueia a exclusão e informa o usuário.
+	if err == nil && recordCount > 0 {
+		message := fmt.Sprintf("Não é possível excluir este usuário, pois ele é responsável por %d registro(s) de prontuário.", recordCount)
 		session.AddFlash(message, "error")
 		session.Save()
-	} else {
-		// 3. Se não houver registros, prosseguir com a exclusão.
-		_, err := h.DB.Exec("DELETE FROM users WHERE id = $1", id)
-		if err != nil {
-			log.Printf("Erro ao remover usuário: %v", err)
-			session.AddFlash("Ocorreu um erro ao tentar remover o usuário.", "error")
-			session.Save()
-		} else {
-			session.AddFlash("Usuário removido com sucesso!", "success")
-			session.Save()
-		}
+		c.Redirect(http.StatusFound, "/admin/users")
+		return // Interrompe a função aqui
 	}
 
+	// Verificação 2: Checar se o usuário tem agendamentos (não cancelados).
+	var appointmentCount int
+	appointmentQuery := `SELECT COUNT(*) FROM appointments WHERE doctor_id = $1 AND status != 'cancelado'`
+	err = h.DB.QueryRow(appointmentQuery, id).Scan(&appointmentCount)
+
+	// Se houver agendamentos, bloqueia a exclusão e informa o usuário.
+	if err == nil && appointmentCount > 0 {
+		message := fmt.Sprintf("Não é possível excluir este usuário, pois ele possui %d agendamento(s) na agenda.", appointmentCount)
+		session.AddFlash(message, "error")
+		session.Save()
+		c.Redirect(http.StatusFound, "/admin/users")
+		return // Interrompe a função aqui
+	}
+
+	// Se passou por ambas as verificações, pode excluir.
+	_, err = h.DB.Exec("DELETE FROM users WHERE id = $1", id)
+	if err != nil {
+		log.Printf("Erro ao remover usuário: %v", err)
+		session.AddFlash("Ocorreu um erro ao tentar remover o usuário.", "error")
+	} else {
+		session.AddFlash("Usuário removido com sucesso!", "success")
+	}
+	session.Save()
 	c.Redirect(http.StatusFound, "/admin/users")
 }
-
-// handlers/admin_handlers.go
 
 func (h *AdminHandler) ViewPatients(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
@@ -186,7 +201,8 @@ func (h *AdminHandler) ViewPatients(c *gin.Context) {
 	pageSize := 10
 	offset := (page - 1) * pageSize
 
-	query := `SELECT id, name, email, phone FROM patients`
+	// CORRETO: A query busca 6 colunas.
+	query := `SELECT id, name, email, phone, consent_given_at, access_token FROM patients`
 	countQuery := `SELECT COUNT(*) FROM patients`
 	var args []interface{}
 	var countArgs []interface{}
@@ -220,20 +236,27 @@ func (h *AdminHandler) ViewPatients(c *gin.Context) {
 	var patients []storage.Patient
 	for rows.Next() {
 		var patient storage.Patient
-		// CORREÇÃO: Usar sql.NullString para campos que podem ser nulos
 		var email, phone sql.NullString
+		var consentGivenAt sql.NullTime
+		var accessToken sql.NullString
 
-		if err := rows.Scan(&patient.ID, &patient.Name, &email, &phone); err != nil {
+		// CORREÇÃO: O Scan agora tem 6 variáveis de destino, correspondendo às 6 colunas da query.
+		if err := rows.Scan(&patient.ID, &patient.Name, &email, &phone, &consentGivenAt, &accessToken); err != nil {
 			log.Printf("Erro ao escanear paciente: %v", err)
 			continue
 		}
 
-		// Se o valor do banco não for nulo, atribui à struct. Senão, fica como string vazia.
 		if email.Valid {
 			patient.Email = email.String
 		}
 		if phone.Valid {
 			patient.Phone = phone.String
+		}
+		if consentGivenAt.Valid {
+			patient.ConsentGivenAt = consentGivenAt
+		}
+		if accessToken.Valid {
+			patient.AccessToken = accessToken
 		}
 
 		patients = append(patients, patient)
@@ -315,8 +338,11 @@ func (h *AdminHandler) PostNewPatient(c *gin.Context) {
 }
 
 
-// handlers/admin_handlers.go
-
+type PendingConsentPatient struct {
+    ID   int
+    Name string
+	AccessToken sql.NullString // Adicione este campo	
+}
 // Estrutura para passar todos os dados necessários para o template
 type PatientEditPageData struct {
 	Title        string
@@ -326,46 +352,40 @@ type PatientEditPageData struct {
 	Patient      storage.Patient
 	LatestRecord storage.PatientRecord   // O registro mais recente para preencher o formulário
 	History      []storage.PatientRecord // Todos os registros para exibir na lista de histórico
+	UserType     string // <-- CAMPO ADICIONADO	
 }
 
-// GetEditPatientForm (VERSÃO FINAL E COMPLETA)
-// Carrega todos os dados de um paciente (cadastrais e clínicos) para a página de edição.
-func (h *AdminHandler) GetEditPatientForm(c *gin.Context) {
-	idStr := c.Param("id")
-	id, _ := strconv.Atoi(idStr)
+// handlers/admin_handlers.go
 
-	pageData := PatientEditPageData{
-		Title:     "Editar Paciente e Prontuário",
-		Action:    "/admin/patients/edit/" + idStr,
-		IsNew:     false,
-		ActiveNav: "patients",
-	}
+// GetPatientDataForForm é uma função reutilizável para buscar todos os dados de um paciente.
+func GetPatientDataForForm(db *sql.DB, patientID int) (PatientEditPageData, error) {
+	pageData := PatientEditPageData{}
 
 	// 1. Buscar os dados cadastrais do paciente da tabela 'patients'
 	patientQuery := `SELECT id, name, consent_date, consent_name, consent_cpf_rg, signature_date, signature_location, 
 		address_street, address_number, address_neighborhood, address_city, address_state, 
 		phone, mobile, dob, age, gender, marital_status, children, num_children, profession, email, 
-		emergency_contact, emergency_phone, emergency_other
+		emergency_contact, emergency_phone, emergency_other, consent_given_at
 		FROM patients WHERE id = $1`
 
-	var consentDate, signatureDate, dob sql.NullTime
+	var consentDate, signatureDate, dob, consentGivenAt sql.NullTime
 	var consentName, consentCpfRg, signatureLocation, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, phone, mobile, gender, maritalStatus, children, profession, email, emergencyContact, emergencyPhone, emergencyOther sql.NullString
 	var age, numChildren sql.NullInt64
 
-	// Scan completo para ler todos os campos do banco
-	err := h.DB.QueryRow(patientQuery, id).Scan(
+	err := db.QueryRow(patientQuery, patientID).Scan(
 		&pageData.Patient.ID, &pageData.Patient.Name, &consentDate, &consentName, &consentCpfRg, &signatureDate, &signatureLocation,
 		&addressStreet, &addressNumber, &addressNeighborhood, &addressCity, &addressState,
 		&phone, &mobile, &dob, &age, &gender, &maritalStatus, &children, &numChildren, &profession, &email,
-		&emergencyContact, &emergencyPhone, &emergencyOther,
+		&emergencyContact, &emergencyPhone, &emergencyOther, &consentGivenAt,
 	)
 	if err != nil {
 		log.Printf("Erro ao buscar paciente para edição: %v", err)
-		c.Redirect(http.StatusFound, "/admin/patients")
-		return
+		return pageData, err
 	}
 
-	// Bloco completo para transferir dados nulos do banco para a struct
+	// ===================================================================
+	// ESTE É O BLOCO ESSENCIAL QUE DEVE ESTAR AQUI
+	// ===================================================================
 	if consentDate.Valid { pageData.Patient.ConsentDate = consentDate.Time.Format("2006-01-02") }
 	if consentName.Valid { pageData.Patient.ConsentName = consentName.String }
 	if consentCpfRg.Valid { pageData.Patient.ConsentCpfRg = consentCpfRg.String }
@@ -389,16 +409,15 @@ func (h *AdminHandler) GetEditPatientForm(c *gin.Context) {
 	if emergencyContact.Valid { pageData.Patient.EmergencyContact = emergencyContact.String }
 	if emergencyPhone.Valid { pageData.Patient.EmergencyPhone = emergencyPhone.String }
 	if emergencyOther.Valid { pageData.Patient.EmergencyOther = emergencyOther.String }
+	if consentGivenAt.Valid { pageData.Patient.ConsentGivenAt = consentGivenAt }
 
 
-	// 2. Buscar o registro clínico MAIS RECENTE para preencher os campos de avaliação
-	latestRecordQuery := `
-		SELECT id, patient_id, doctor_id, record_date, anxiety_level, anger_level, fear_level, sadness_level, 
+	// 2. Buscar o registro clínico MAIS RECENTE
+	latestRecordQuery := `SELECT id, patient_id, doctor_id, record_date, anxiety_level, anger_level, fear_level, sadness_level, 
 		joy_level, energy_level, main_complaint, complaint_history, signs_symptoms, current_treatment, notes
-		FROM patient_records
-		WHERE patient_id = $1 ORDER BY record_date DESC LIMIT 1`
+		FROM patient_records WHERE patient_id = $1 ORDER BY record_date DESC LIMIT 1`
 	
-	err = h.DB.QueryRow(latestRecordQuery, id).Scan(
+	err = db.QueryRow(latestRecordQuery, patientID).Scan(
 		&pageData.LatestRecord.ID, &pageData.LatestRecord.PatientID, &pageData.LatestRecord.DoctorID, &pageData.LatestRecord.RecordDate,
 		&pageData.LatestRecord.AnxietyLevel, &pageData.LatestRecord.AngerLevel, &pageData.LatestRecord.FearLevel, &pageData.LatestRecord.SadnessLevel,
 		&pageData.LatestRecord.JoyLevel, &pageData.LatestRecord.EnergyLevel, &pageData.LatestRecord.MainComplaint, &pageData.LatestRecord.ComplaintHistory,
@@ -408,36 +427,47 @@ func (h *AdminHandler) GetEditPatientForm(c *gin.Context) {
 		log.Printf("Erro ao buscar último registro do paciente: %v", err)
 	}
 
-	// 3. Buscar TODO o histórico de registros para exibir na lista
-	historyQuery := `
-		SELECT r.id, r.record_date, u.name as doctor_name,
-			   r.main_complaint, r.complaint_history, r.signs_symptoms, r.current_treatment, r.notes,
-			   r.anxiety_level, r.anger_level, r.fear_level, r.sadness_level, r.joy_level, r.energy_level
+	// 3. Buscar TODO o histórico de registros
+	historyQuery := `SELECT r.id, r.record_date, u.name as doctor_name,
+		r.main_complaint, r.complaint_history, r.signs_symptoms, r.current_treatment, r.notes,
+		r.anxiety_level, r.anger_level, r.fear_level, r.sadness_level, r.joy_level, r.energy_level
 		FROM patient_records r JOIN users u ON r.doctor_id = u.id
 		WHERE r.patient_id = $1 ORDER BY r.record_date DESC`
 
-	rows, err := h.DB.Query(historyQuery, id)
+	rows, err := db.Query(historyQuery, patientID)
 	if err != nil {
 		log.Printf("Erro ao buscar histórico do paciente: %v", err)
 	} else {
 		defer rows.Close()
 		for rows.Next() {
 			var rec storage.PatientRecord
-			err := rows.Scan(
-				&rec.ID, &rec.RecordDate, &rec.DoctorName,
-				&rec.MainComplaint, &rec.ComplaintHistory, &rec.SignsSymptoms, &rec.CurrentTreatment, &rec.Notes,
-				&rec.AnxietyLevel, &rec.AngerLevel, &rec.FearLevel, &rec.SadnessLevel, &rec.JoyLevel, &rec.EnergyLevel,
-			)
-			if err == nil {
+			if err := rows.Scan(&rec.ID, &rec.RecordDate, &rec.DoctorName, &rec.MainComplaint, &rec.ComplaintHistory, &rec.SignsSymptoms, &rec.CurrentTreatment, &rec.Notes, &rec.AnxietyLevel, &rec.AngerLevel, &rec.FearLevel, &rec.SadnessLevel, &rec.JoyLevel, &rec.EnergyLevel); err == nil {
 				pageData.History = append(pageData.History, rec)
 			}
 		}
 	}
 
-	c.HTML(http.StatusOK, "admin/patient_form.html", pageData)
+	return pageData, nil
 }
 
-// handlers/admin_handlers.go
+func (h *AdminHandler) GetEditPatientForm(c *gin.Context) {
+	idStr := c.Param("id")
+	id, _ := strconv.Atoi(idStr)
+
+	pageData, err := GetPatientDataForForm(h.DB, id)
+	if err != nil {
+		c.HTML(http.StatusInternalServerError, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Não foi possível carregar os dados do paciente."})
+		return
+	}
+
+	// Define os dados específicos para esta página/rota
+	pageData.Title = "Editar Paciente e Prontuário"
+	pageData.Action = "/admin/patients/edit/" + idStr
+	pageData.ActiveNav = "patients"
+	pageData.UserType = "admin" // <-- LINHA ADICIONADA AQUI
+
+	c.HTML(http.StatusOK, "admin/patient_form.html", pageData)
+}
 
 // PostEditPatient (VERSÃO CORRIGIDA)
 // Agora atualiza a tabela 'patients' com os dados clínicos mais recentes E cria o registro histórico.
@@ -727,6 +757,30 @@ func (h *AdminHandler) SystemMonitoring(c *gin.Context) {
         ActiveDaysFilter: days,
     }
 
+	// --- LÓGICA ATUALIZADA PARA BUSCAR PACIENTES PENDENTES ---
+	var pendingPatients []PendingConsentPatient
+	// Query agora busca também o access_token
+	query := `
+		SELECT id, name, access_token FROM patients
+		WHERE consent_given_at IS NULL
+		ORDER BY created_at ASC
+		LIMIT 10`
+	rowsPending, err := h.DB.Query(query)
+	if err != nil {
+		log.Printf("Erro ao buscar pacientes com consentimento pendente: %v", err)
+	} else {
+		defer rowsPending.Close()
+		for rowsPending.Next() {
+			var p PendingConsentPatient
+			// Scan agora inclui o accessToken
+			if err := rowsPending.Scan(&p.ID, &p.Name, &p.AccessToken); err == nil {
+				pendingPatients = append(pendingPatients, p)
+			}
+		}
+	}
+	data.PendingConsentPatients = pendingPatients
+	// --- FIM DA LÓGICA ATUALIZADA ---
+			
     rows, err := h.DB.Query(`
         SELECT p.name, u.name, a.start_time 
         FROM appointments a

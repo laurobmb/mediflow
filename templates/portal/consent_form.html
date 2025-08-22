@@ -13,6 +13,12 @@
                     Eu, <input type="text" id="consent_name_inline" name="consent_name_inline" value="{{.Patient.Name}}" required>,
                     portador do CPF/RG: <input type="text" id="consent_cpf_rg_inline" name="consent_cpf_rg_inline" placeholder="Seu CPF ou RG" required>, por minha livre iniciativa, aceito submeter-me ao tratamento de reiki. Declaro que todas as informações contidas nesta ficha de avaliação são verdadeiras, e também estar ciente de eventuais reações em decorrência dos procedimentos explicados previamente, não podendo futuramente reclamar quanto ao resultado do procedimento, nem reivindicar qualquer tipo de ressarcimento monetário ou de qualquer outra natureza. Estou ciente também, que é minha responsabilidade informar novas advertências que possam vir a ocorrer, para serem acrescentadas a este documento.
                 </p>
+                {{if .Errors.Name}}
+                    <div style="color: red; font-size: 0.9em; margin-top: -10px; margin-bottom: 10px;">{{.Errors.Name}}</div>
+                {{end}}
+                {{if .Errors.CPF}}
+                    <div style="color: red; font-size: 0.9em; margin-top: -10px; margin-bottom: 10px;">{{.Errors.CPF}}</div>
+                {{end}}                
             </fieldset>
 
             <fieldset>

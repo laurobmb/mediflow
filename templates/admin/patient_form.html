@@ -19,11 +19,25 @@
 
 {{define "content"}}
 <div class="admin-container">
-    {{template "_admin_header.html" .}}
-
+        {{/* Exibe o cabeçalho correto dependendo do perfil do usuário */}}
+        {{if eq .UserType "admin"}}
+            {{template "_admin_header.html" .}}
+        {{else if eq .UserType "terapeuta"}}
+            {{template "_terapeuta_header.html" .}}
+        {{end}}
     <div class="form-container">
         <h2>{{.Title}}</h2>
 
+        {{if .Patient.ConsentGivenAt.Valid}}
+            <div class="flash-message success">
+                ✅ Consentimento fornecido pelo paciente em: {{.Patient.ConsentGivenAt.Time.Format "02/01/2006 às 15:04"}}
+            </div>
+        {{else}}
+            <div class="flash-message error">
+                ❌ Paciente ainda não preencheu o termo de consentimento.
+            </div>
+        {{end}}
+                
         <form action="{{.Action}}" method="post">
             
             <fieldset>

@@ -1,11 +1,57 @@
+{{define "head"}}
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/admin_layout.css">
+{{end}}
+
 {{define "content"}}
-<div class="form-container">
-    <h2>Dashboard do Médico</h2>
-    <p>Bem-vindo, Dr(a). Aqui você poderá gerenciar seus pacientes e agendamentos.</p>
-    <ul>
-        <li><a href="#">Pesquisar Paciente</a></li>
-        <li><a href="#">Ver Agendamentos de Hoje</a></li>
-    </ul>
-    <a href="/logout" style="display: block; text-align: center; margin-top: 30px;">Sair</a>
+<div class="admin-container">
+    {{template "_terapeuta_header.html" .}}
+
+    <div class="form-container">
+        <h2>Meu Dashboard</h2>
+        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; gap: 30px;">
+            
+            <div class="dashboard-card">
+                <h3>Próximas Consultas</h3>
+                {{if .Data.UpcomingAppointments}}
+                    {{range .Data.UpcomingAppointments}}
+                    <div class="appointment-list-item">
+                        <div class="appointment-details">
+                            <a href="/admin/patients/edit/{{.PatientID}}" style="color: #333; text-decoration:none;"><strong>{{.PatientName}}</strong></a>
+                        </div>
+                        <span class="appointment-time">{{.StartTime.Format "02/01 às 15:04"}}</span>
+                    </div>
+                    {{end}}
+                {{else}}
+                    <p>Nenhuma consulta futura agendada.</p>
+                {{end}}
+            </div>
+
+            <div class="dashboard-card">
+                <h3>Meus Pacientes</h3>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Contato</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Data.MyPatients}}
+                            <tr>
+                                <td><a href="/admin/patients/edit/{{.ID}}">{{.Name}}</a></td>
+                                <td>{{.Phone}}</td>
+                            </tr>
+                            {{else}}
+                            <tr><td colspan="2">Nenhum paciente encontrado.</td></tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
 </div>
 {{end}}

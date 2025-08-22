@@ -92,6 +92,26 @@ func AuthRequired() gin.HandlerFunc {
 	}
 }
 
+func RoleRequired(requiredRole string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		userType := session.Get("user_type")
+
+		// Verifica se o perfil existe na sessão e se é o perfil necessário
+		if userType == nil || userType.(string) != requiredRole {
+			// Se não for autorizado, envia para uma página de erro "Proibido"
+			log.Printf("Acesso negado para o perfil '%v' na rota que requer '%s'", userType, requiredRole)
+			c.HTML(http.StatusForbidden, "layouts/error.html", gin.H{
+				"Title":   "Acesso Negado",
+				"Message": "Você não tem permissão para acessar esta página.",
+			})
+			c.Abort() // Interrompe a requisição
+			return
+		}
+		c.Next() // Permissão concedida, continua para a próxima função
+	}
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("Erro ao carregar o arquivo .env: %v", err)
@@ -108,7 +128,8 @@ func main() {
 	adminHandler := &handlers.AdminHandler{DB: db}
 	secretariaHandler := &handlers.SecretariaHandler{DB: db}
     portalHandler := &handlers.PortalHandler{DB: db} // Adicionar novo handler
-
+    terapeutaHandler := &handlers.TerapeutaHandler{DB: db} // <-- ADICIONE ESTA LINHA
+	
 	router := gin.Default()
 	router.HTMLRender = newMultiTemplateRenderer("templates")
 	store := cookie.NewStore([]byte("nova-chave-secreta-agosto-2025"))
@@ -139,7 +160,7 @@ func main() {
 	}
 
 	// Grupos de Rotas Protegidas
-	secretariaGroup := router.Group("/secretaria", AuthRequired())
+	secretariaGroup := router.Group("/secretaria", AuthRequired(), RoleRequired("secretaria"))
 	{
 		secretariaGroup.GET("/dashboard", secretariaHandler.ViewAgenda)
 
@@ -156,12 +177,14 @@ func main() {
         secretariaGroup.GET("/pacientes/token/:id", secretariaHandler.ShowPatientToken) // Adicionar esta rota		
 	}
 
-	terapeutaGroup := router.Group("/terapeuta", AuthRequired())
+	terapeutaGroup := router.Group("/terapeuta", AuthRequired(), RoleRequired("terapeuta"))
 	{
-		terapeutaGroup.GET("/dashboard", handlers.TerapeutaDashboard)
+        terapeutaGroup.GET("/dashboard", terapeutaHandler.TerapeutaDashboard)
+		terapeutaGroup.GET("/pacientes/prontuario/:id", terapeutaHandler.ShowPatientRecord)
+		terapeutaGroup.POST("/pacientes/prontuario/:id", terapeutaHandler.ProcessPatientRecord)		
 	}
 
-	adminGroup := router.Group("/admin", AuthRequired())
+	adminGroup := router.Group("/admin", AuthRequired(), RoleRequired("admin"))
 	{
 		adminGroup.GET("/dashboard", handlers.AdminDashboard)
 		adminGroup.GET("/agenda", adminHandler.ViewAgenda) // NOVA ROTA

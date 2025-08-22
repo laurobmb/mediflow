@@ -19,7 +19,7 @@ type User struct {
 // Patient contém todos os dados do formulário inicial e cadastrais.
 type Patient struct {
 	ID                        int          `json:"id"`
-	AccessToken               string       `json:"access_token"`
+	AccessToken               sql.NullString `json:"access_token"`
 	ConsentGivenAt            sql.NullTime `json:"consent_given_at"`
 	ConsentDate               string       `form:"consent_date" json:"consent_date"`
 	ConsentName               string       `form:"consent_name_inline" json:"consent_name"`
