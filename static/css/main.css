@@ -263,3 +263,35 @@ legend {
 .rating-scale input[type="radio"] {
     margin-right: 5px;
 }
+
+/* static/css/admin.css */
+
+/* ... seu css existente ... */
+
+.record-history-list {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+.record-card {
+    background: #fdfcff;
+    border: 1px solid #E0D0F0;
+    border-left: 4px solid #8A2BE2;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+.record-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+.record-doctor { color: #5A3A81; }
+.record-date { color: #777; }
+.record-content p { margin: 0 0 8px; }
+.record-content p:last-child { margin-bottom: 0; }
+.record-content p strong { color: #333; }

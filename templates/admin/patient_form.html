@@ -1,6 +1,20 @@
 {{define "head"}}
     <link rel="stylesheet" href="/static/css/admin.css">
     <link rel="stylesheet" href="/static/css/admin_layout.css">
+    <style>
+        .record-history-list { max-height: 600px; overflow-y: auto; padding: 5px 15px 5px 5px; border: 1px solid #E0D0F0; border-radius: 8px; background-color: #fff; }
+        .record-card { background: #fdfcff; border: 1px solid #E0D0F0; border-left: 5px solid #8A2BE2; border-radius: 8px; padding: 15px 20px; margin-bottom: 15px; }
+        .record-card:last-child { margin-bottom: 0; }
+        .record-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0eaf5; padding-bottom: 10px; margin-bottom: 15px; font-size: 0.9em; }
+        .record-doctor { color: #5A3A81; }
+        .record-date { color: #555; font-weight: bold; }
+        .record-content dl { margin: 0; }
+        .record-content dt { font-weight: bold; color: #333; margin-top: 12px; font-size: 0.9em; text-transform: uppercase; }
+        .record-content dd { margin-left: 0; margin-bottom: 10px; color: #666; white-space: pre-wrap; padding-left: 10px; border-left: 2px solid #f0eaf5;}
+        .record-levels { margin-top: 15px; padding-top: 15px; border-top: 1px solid #f0eaf5; font-size: 0.85em; color: #333; display: flex; flex-wrap: wrap; gap: 15px;}
+        .record-levels strong { color: #5A3A81; }
+        .record-levels span { background-color: #f0eaf5; padding: 3px 8px; border-radius: 4px; }
+    </style>
 {{end}}
 
 {{define "content"}}
@@ -13,303 +27,103 @@
         <form action="{{.Action}}" method="post">
             
             <fieldset>
-                <legend>Termo de Consentimento</legend>
+                <legend>Identificação do Cliente</legend>
+                <div class="form-group"><label for="client_name">Nome:</label><input type="text" id="client_name" name="client_name" value="{{.Patient.Name}}" required></div>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label for="consent_date">Data de Realização:</label>
-                        <input type="date" id="consent_date" name="consent_date" value="{{.Patient.ConsentDate}}">
-                    </div>
+                    <div class="form-group"><label for="address_street">Endereço:</label><input type="text" id="address_street" name="address_street" value="{{.Patient.AddressStreet}}"></div>
+                    <div class="form-group"><label for="address_number">Nº:</label><input type="text" id="address_number" name="address_number" value="{{.Patient.AddressNumber}}"></div>
                 </div>
-                <p class="consent-text">
-                    Eu, <input type="text" id="consent_name_inline" name="consent_name_inline" placeholder="Nome Completo do Paciente" value="{{.Patient.ConsentName}}">,
-                    portador do CPF/RG: <input type="text" id="consent_cpf_rg_inline" name="consent_cpf_rg_inline" placeholder="CPF/RG" value="{{.Patient.ConsentCpfRg}}">,por minha livre iniciativa, aceito submeter-me ao tratamento de reiki. Declaro que todas as informações contidas nesta ficha de avaliação são verdadeiras, e também estar ciente de eventuais reações em decorrência dos procedimentos explicados previamente, não podendo futuramente reclamar quanto ao resultado do procedimento, nem reivindicar qualquer tipo de ressarcimento monetário ou de qualquer outra natureza. Estou ciente também, que é minha responsabilidade informar novas advertências que possam vir a ocorrer, para serem acrescentadas a este documento.
-                </p>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label for="signature_date">Data da Assinatura:</label>
-                        <input type="date" id="signature_date" name="signature_date" value="{{.Patient.SignatureDate}}">
-                    </div>
-                    <div class="form-group">
-                        <label for="signature_location">Local:</label>
-                        <input type="text" id="signature_location" name="signature_location" placeholder="Local" value="{{.Patient.SignatureLocation}}">
+                    <div class="form-group"><label for="address_neighborhood">Bairro:</label><input type="text" id="address_neighborhood" name="address_neighborhood" value="{{.Patient.AddressNeighborhood}}"></div>
+                    <div class="form-group"><label for="address_city">Cidade:</label><input type="text" id="address_city" name="address_city" value="{{.Patient.AddressCity}}"></div>
+                    <div class="form-group"><label for="address_state">Estado:</label><input type="text" id="address_state" name="address_state" value="{{.Patient.AddressState}}"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="phone">Telefone:</label><input type="tel" id="phone" name="phone" value="{{.Patient.Phone}}"></div>
+                    <div class="form-group"><label for="mobile">Celular:</label><input type="tel" id="mobile" name="mobile" value="{{.Patient.Mobile}}"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="dob">Data de Nascimento:</label><input type="date" id="dob" name="dob" value="{{.Patient.DOB}}"></div>
+                    <div class="form-group"><label for="age">Idade:</label><input type="number" id="age" name="age" value="{{.Patient.Age}}" min="0"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="email">E-mail:</label><input type="email" id="email" name="email" value="{{.Patient.Email}}"></div>
+                    <div class="form-group"><label for="profession">Profissão:</label><input type="text" id="profession" name="profession" value="{{.Patient.Profession}}"></div>
+                </div>
+                 <div class="form-group">
+                    <label>Contato de Emergência</label>
+                    <div class="form-row">
+                        <div class="form-group"><label for="emergency_contact_name">Nome:</label><input type="text" id="emergency_contact_name" name="emergency_contact_name" value="{{.Patient.EmergencyContact}}"></div>
+                        <div class="form-group"><label for="emergency_contact_phone">Telefone:</label><input type="tel" id="emergency_contact_phone" name="emergency_contact_phone" value="{{.Patient.EmergencyPhone}}"></div>
+                        <div class="form-group"><label for="emergency_contact_other">Outro (relação):</label><input type="text" id="emergency_contact_other" name="emergency_contact_other" value="{{.Patient.EmergencyOther}}"></div>
                     </div>
                 </div>
             </fieldset>
 
             <fieldset>
-                <legend>Identificação do Cliente</legend>
-                <div class="form-group">
-                    <label for="client_name">Nome:</label>
-                    <input type="text" id="client_name" name="client_name" value="{{.Patient.Name}}" required>
-                </div>
+                <legend>Avaliação de Nível Emocional e Energético (Sessão Atual)</legend>
+                <div class="form-group"><label>Nível de Ansiedade (0-10):</label><div class="rating-scale">{{range seq 0 10}}<label><input type="radio" name="anxiety_level" value="{{.}}" {{if eq $.LatestRecord.AnxietyLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}</div></div>
+                <div class="form-group"><label>Nível de Raiva (0-10):</label><div class="rating-scale">{{range seq 0 10}}<label><input type="radio" name="anger_level" value="{{.}}" {{if eq $.LatestRecord.AngerLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}</div></div>
+                <div class="form-group"><label>Nível de Medo (0-10):</label><div class="rating-scale">{{range seq 0 10}}<label><input type="radio" name="fear_level" value="{{.}}" {{if eq $.LatestRecord.FearLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}</div></div>
+                <div class="form-group"><label>Nível de Tristeza (0-10):</label><div class="rating-scale">{{range seq 0 10}}<label><input type="radio" name="sadness_level" value="{{.}}" {{if eq $.LatestRecord.SadnessLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}</div></div>
+                <div class="form-group"><label>Nível de Alegria (0-10):</label><div class="rating-scale">{{range seq 0 10}}<label><input type="radio" name="joy_level" value="{{.}}" {{if eq $.LatestRecord.JoyLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}</div></div>
+                <div class="form-group"><label>Nível de Energia (0-10):</label><div class="rating-scale">{{range seq 0 10}}<label><input type="radio" name="energy_level" value="{{.}}" {{if eq $.LatestRecord.EnergyLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}</div></div>
+            </fieldset>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="address_street">Endereço:</label>
-                    <input type="text" id="address_street" name="address_street" value="{{.Patient.AddressStreet}}" placeholder="Rua, Av. etc.">
-                </div>
-                <div class="form-group">
-                    <label for="address_number">Nº:</label>
-                    <input type="text" id="address_number" name="address_number" value="{{.Patient.AddressNumber}}">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="address_neighborhood">Bairro:</label>
-                    <input type="text" id="address_neighborhood" name="address_neighborhood" value="{{.Patient.AddressNeighborhood}}">
-                </div>
-                <div class="form-group">
-                    <label for="address_city">Cidade:</label>
-                    <input type="text" id="address_city" name="address_city" value="{{.Patient.AddressCity}}">
-                </div>
-                <div class="form-group">
-                    <label for="address_state">Estado:</label>
-                    <input type="text" id="address_state" name="address_state" value="{{.Patient.AddressState}}">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="phone">Telefone:</label>
-                    <input type="tel" id="phone" name="phone" value="{{.Patient.Phone}}" placeholder="(XX) XXXX-XXXX">
-                </div>
-                <div class="form-group">
-                    <label for="mobile">Celular:</label>
-                    <input type="tel" id="mobile" name="mobile" value="{{.Patient.Mobile}}" placeholder="(XX) XXXXX-XXXX">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="dob">Data de Nascimento:</label>
-                    <input type="date" id="dob" name="dob" value="{{.Patient.DOB}}">
-                </div>
-                <div class="form-group">
-                    <label for="age">Idade:</label>
-                    <input type="number" id="age" name="age" value="{{.Patient.Age}}" min="0">
-                </div>
-                <div class="form-group">
-                    <label>Sexo:</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="gender" value="M" {{if eq .Patient.Gender "M"}}checked{{end}}> M</label>
-                        <label><input type="radio" name="gender" value="F" {{if eq .Patient.Gender "F"}}checked{{end}}> F</label>
-                    </div>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="marital_status">Estado Civil:</label>
-                    <input type="text" id="marital_status" name="marital_status" value="{{.Patient.MaritalStatus}}">
-                </div>
-                <div class="form-group">
-                    <label>Filho(s):</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="children" value="Sim" onchange="toggleChildrenQty(true)" {{if eq .Patient.Children "Sim"}}checked{{end}}> Sim</label>
-                        <label><input type="radio" name="children" value="Não" onchange="toggleChildrenQty(false)" {{if eq .Patient.Children "Não"}}checked{{end}}> Não</label>
-                    </div>
-                </div>
-                <div class="form-group" id="children_qty_group" style="display: none;">
-                    <label for="num_children">Quantos?</label>
-                    <input type="number" id="num_children" name="num_children" value="{{.Patient.NumChildren}}" min="0">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="profession">Profissão:</label>
-                    <input type="text" id="profession" name="profession" value="{{.Patient.Profession}}">
-                </div>
-                <div class="form-group">
-                    <label for="email">E-mail:</label>
-                    <input type="email" id="email" name="email" value="{{.Patient.Email}}">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Contato de Emergência</label>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="emergency_contact_name">Nome:</label>
-                        <input type="text" id="emergency_contact_name" name="emergency_contact_name" value="{{.Patient.EmergencyContact}}">
-                    </div>
-                    <div class="form-group">
-                        <label for="emergency_contact_phone">Telefone:</label>
-                        <input type="tel" id="emergency_contact_phone" name="emergency_contact_phone" value="{{.Patient.EmergencyPhone}}" placeholder="(XX) XXXXX-XXXX">
-                    </div>
-                    <div class="form-group">
-                        <label for="emergency_contact_other">Outro (relação):</label>
-                        <input type="text" id="emergency_contact_other" name="emergency_contact_other" value="{{.Patient.EmergencyOther}}">
-                    </div>
-                </div>
-            </div>
-        </fieldset>
+            <fieldset>
+                <legend>Queixas e Histórico (Sessão Atual)</legend>
+                <div class="form-group"><label for="main_complaint">Queixa principal:</label><textarea id="main_complaint" name="main_complaint" rows="4">{{.LatestRecord.MainComplaint}}</textarea></div>
+                <div class="form-group"><label for="complaint_history">Histórico da queixa principal:</label><textarea id="complaint_history" name="complaint_history" rows="6">{{.LatestRecord.ComplaintHistory}}</textarea></div>
+                <div class="form-group"><label for="signs_symptoms">Sinais e sintomas:</label><textarea id="signs_symptoms" name="signs_symptoms" rows="4">{{.LatestRecord.SignsSymptoms}}</textarea></div>
+                <div class="form-group"><label for="current_treatment">Está fazendo algum tratamento?</label><textarea id="current_treatment" name="current_treatment" rows="4">{{.LatestRecord.CurrentTreatment}}</textarea></div>
+            </fieldset>
+            
+            <fieldset>
+                <legend>Notas do Médico (Sessão Atual)</legend>
+                <div class="form-group"><label for="notes">Notas Gerais sobre a Sessão:</label><textarea id="notes" name="notes" rows="6">{{.LatestRecord.Notes}}</textarea></div>
+            </fieldset>
 
-        <fieldset>
-            <legend>Perfil</legend>
-            <div class="form-group">
-                <label>Esforço Repetitivo:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="repetitive_effort" value="Sim" onchange="toggleField('repetitive_effort_spec', true)" {{if eq .Patient.RepetitiveEffort "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="repetitive_effort" value="Não" onchange="toggleField('repetitive_effort_spec', false)" {{if eq .Patient.RepetitiveEffort "Não"}}checked{{end}}> Não</label>
-                </div>
-                <input type="text" id="repetitive_effort_spec" name="repetitive_effort_spec" placeholder="Especificação" style="display: none; margin-top: 10px;">
-            </div>
-            <div class="form-group">
-                <label>Atividade Física:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="physical_activity" value="Sim" onchange="toggleField('physical_activity_spec', true)" {{if eq .Patient.PhysicalActivity "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="physical_activity" value="Não" onchange="toggleField('physical_activity_spec', false)" {{if eq .Patient.PhysicalActivity "Não"}}checked{{end}}> Não</label>
-                </div>
-                <input type="text" id="physical_activity_spec" name="physical_activity_spec" placeholder="Especificação" style="display: none; margin-top: 10px;">
-            </div>
-            <div class="form-group">
-                <label>Fumante:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="smoker" value="Sim" onchange="toggleField('smoker_time', true)" {{if eq .Patient.Smoker "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="smoker" value="Não" onchange="toggleField('smoker_time', false)" {{if eq .Patient.Smoker "Não"}}checked{{end}}> Não</label>
-                    <label><input type="radio" name="smoker" value="Ex-fumante" onchange="toggleField('smoker_time', true)" {{if eq .Patient.Smoker "Ex-fumante"}}checked{{end}}> Ex-fumante</label>
-                    <label><input type="radio" name="smoker" value="Convive" onchange="toggleField('smoker_time', true)" {{if eq .Patient.Smoker "Convive"}}checked{{end}}> Convive</label>
-                </div>
-                <input type="text" id="smoker_time" name="smoker_time" placeholder="Há quanto tempo?" style="display: none; margin-top: 10px;">
-            </div>
-            <div class="form-group">
-                <label>Bebidas Alcoólicas:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="alcohol" value="Sim" onchange="toggleField('alcohol_frequency', true)" {{if eq .Patient.Alcohol "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="alcohol" value="Não" onchange="toggleField('alcohol_frequency', false)" {{if eq .Patient.Alcohol "Não"}}checked{{end}}> Não</label>
-                </div>
-                <input type="text" id="alcohol_frequency" name="alcohol_frequency" placeholder="Frequência" style="display: none; margin-top: 10px;">
-            </div>
-            <div class="form-group">
-                <label>Transtorno mental (ansiedade, depressão, etc):</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="mental_disorder" value="Sim" onchange="toggleMentalDisorderTreatment(true)" {{if eq .Patient.MentalDisorder "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="mental_disorder" value="Não" onchange="toggleMentalDisorderTreatment(false)" {{if eq .Patient.MentalDisorder "Não"}}checked{{end}}> Não</label>
-                </div>
-                <div id="mental_disorder_treatment_group" style="display: none; margin-top: 10px;">
-                    <label>Faz tratamento?</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="mental_disorder_treatment" value="Sim" onchange="toggleField('mental_disorder_details', true)"> Sim</label>
-                        <label><input type="radio" name="mental_disorder_treatment" value="Não" onchange="toggleField('mental_disorder_details', false)"> Não</label>
+            <fieldset>
+                <legend>Histórico do Prontuário</legend>
+                {{if .History}}
+                    <div class="record-history-list">
+                        {{range .History}}
+                        <div class="record-card">
+                            <div class="record-header">
+                                <span class="record-doctor">Registrado por: <strong>{{.DoctorName}}</strong></span>
+                                <span class="record-date">{{.RecordDate.Format "02/01/2006 às 15:04"}}</span>
+                            </div>
+                            <div class="record-content">
+                                <dl>
+                                    <dt>Queixa Principal:</dt><dd>{{if .MainComplaint}}{{.MainComplaint}}{{else}}N/A{{end}}</dd>
+                                    <dt>Histórico da Queixa:</dt><dd>{{if .ComplaintHistory}}{{.ComplaintHistory}}{{else}}N/A{{end}}</dd>
+                                    <dt>Sinais e Sintomas:</dt><dd>{{if .SignsSymptoms}}{{.SignsSymptoms}}{{else}}N/A{{end}}</dd>
+                                    <dt>Tratamento Atual:</dt><dd>{{if .CurrentTreatment}}{{.CurrentTreatment}}{{else}}N/A{{end}}</dd>
+                                    <dt>Notas da Sessão:</dt><dd>{{if .Notes}}{{.Notes}}{{else}}N/A{{end}}</dd>
+                                </dl>
+                                <div class="record-levels">
+                                    <strong>Níveis (0-10):</strong>
+                                    <span>Ansiedade: {{.AnxietyLevel}}</span>
+                                    <span>Raiva: {{.AngerLevel}}</span>
+                                    <span>Medo: {{.FearLevel}}</span>
+                                    <span>Tristeza: {{.SadnessLevel}}</span>
+                                    <span>Alegria: {{.JoyLevel}}</span>
+                                    <span>Energia: {{.EnergyLevel}}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {{end}}
                     </div>
-                    <input type="text" id="mental_disorder_details" name="mental_disorder_details" placeholder="Qual? Quanto tempo?" style="display: none; margin-top: 10px;">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Pertence a alguma religião ou se identifica com alguma?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="religion" value="Sim" onchange="toggleField('religion_details', true)" {{if eq .Patient.Religion "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="religion" value="Não" onchange="toggleField('religion_details', false)" {{if eq .Patient.Religion "Não"}}checked{{end}}> Não</label>
-                </div>
-                <input type="text" id="religion_details" name="religion_details" placeholder="Qual(is)?" style="display: none; margin-top: 10px;">
-            </div>
-            <div class="form-group">
-                <label>Faz uso de medicamentos:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="medication" value="Sim" onchange="toggleField('medication_details', true)" {{if eq .Patient.Medication "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="medication" value="Não" onchange="toggleField('medication_details', false)" {{if eq .Patient.Medication "Não"}}checked{{end}}> Não</label>
-                </div>
-                <input type="text" id="medication_details" name="medication_details" placeholder="Qual(is)?" style="display: none; margin-top: 10px;">
-            </div>
-            <div class="form-group">
-                <label>Fez Cirurgia(s):</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="surgery" value="Sim" onchange="toggleField('surgery_details', true)" {{if eq .Patient.Surgery "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="surgery" value="Não" onchange="toggleField('surgery_details', false)" {{if eq .Patient.Surgery "Não"}}checked{{end}}> Não</label>
-                </div>
-                <input type="text" id="surgery_details" name="surgery_details" placeholder="Qual(is) e Quando?" style="display: none; margin-top: 10px;">
-            </div>
-            <div class="form-group">
-                <label>Tem alergia a óleos essenciais ou produtos aromáticos:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="allergies" value="Sim" onchange="toggleField('allergies_details', true)" {{if eq .Patient.Allergies "Sim"}}checked{{end}}> Sim</label>
-                    <label><input type="radio" name="allergies" value="Não" onchange="toggleField('allergies_details', false)" {{if eq .Patient.Allergies "Não"}}checked{{end}}> Não</label>
-                </div>
-                <input type="text" id="allergies_details" name="allergies_details" placeholder="Qual(is)?" style="display: none; margin-top: 10px;">
-            </div>
-        </fieldset>
+                {{else}}
+                    <p>Nenhum histórico de prontuário registrado para este paciente.</p>
+                {{end}}
+            </fieldset>
 
-        <fieldset>
-            <legend>Avaliação de Nível Emocional e Energético</legend>
-            <div class="form-group">
-                <label>Nível de Ansiedade/Preocupação: (0 = Nenhuma | 10 = Máximo)</label>
-                <div class="rating-scale">
-                    {{range seq 0 10}}<label><input type="radio" name="anxiety_level" value="{{.}}" {{if eq $.Patient.AnxietyLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}
-                </div>
+            <div class="form-actions">
+                <a href="/admin/patients" class="btn-cancel">Voltar para a Lista</a>
+                <button type="submit" class="btn-submit">Salvar e Criar Registro Histórico</button>
             </div>
-            <div class="form-group">
-                <label>Nível de Raiva/Frustração: (0 = Nenhuma | 10 = Máximo)</label>
-                <div class="rating-scale">
-                    {{range seq 0 10}}<label><input type="radio" name="anger_level" value="{{.}}" {{if eq $.Patient.AngerLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Nível de Medo/Insegurança: (0 = Nenhuma | 10 = Máximo)</label>
-                <div class="rating-scale">
-                    {{range seq 0 10}}<label><input type="radio" name="fear_level" value="{{.}}" {{if eq $.Patient.FearLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Nível de Tristeza/Mágoa: (0 = Nenhuma | 10 = Máximo)</label>
-                <div class="rating-scale">
-                    {{range seq 0 10}}<label><input type="radio" name="sadness_level" value="{{.}}" {{if eq $.Patient.SadnessLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Nível de Alegria/Impaciência: (0 = Nenhuma | 10 = Máximo)</label>
-                <div class="rating-scale">
-                    {{range seq 0 10}}<label><input type="radio" name="joy_level" value="{{.}}" {{if eq $.Patient.JoyLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Escala de energia/Sensações: (0 = Sem energia | 10 = Energia elevada)</label>
-                <div class="rating-scale">
-                    {{range seq 0 10}}<label><input type="radio" name="energy_level" value="{{.}}" {{if eq $.Patient.EnergyLevel .}}checked{{end}}> <span>{{.}}</span></label>{{end}}
-                </div>
-            </div>
-        </fieldset>
-
-        <fieldset>
-            <legend>Queixas e Histórico</legend>
-            <div class="form-group">
-                <label for="main_complaint">Queixa principal:</label>
-                <textarea id="main_complaint" name="main_complaint" rows="4" placeholder="Descreva sua queixa principal.">{{.Patient.MainComplaint}}</textarea>
-            </div>
-            <div class="form-group">
-                <label for="complaint_history">Histórico da queixa principal:</label>
-                <textarea id="complaint_history" name="complaint_history" rows="6" placeholder="Detalhe o histórico da sua queixa.">{{.Patient.ComplaintHistory}}</textarea>
-            </div>
-            <div class="form-group">
-                <label for="signs_symptoms">Sinais e sintomas:</label>
-                <textarea id="signs_symptoms" name="signs_symptoms" rows="4" placeholder="Quais sinais e sintomas você percebe?">{{.Patient.SignsSymptoms}}</textarea>
-            </div>
-            <div class="form-group">
-                <label for="current_treatment">Está fazendo algum tratamento? Outras medicações?</label>
-                <textarea id="current_treatment" name="current_treatment" rows="4" placeholder="Informe sobre tratamentos ou medicações em uso.">{{.Patient.CurrentTreatment}}</textarea>
-            </div>
-        </fieldset>
-
-        <fieldset>
-            <legend>Como Você Nos Encontrou?</legend>
-            <div class="form-group radio-group">
-                <label><input type="radio" name="how_found" value="Instagram" {{if eq .Patient.HowFound "Instagram"}}checked{{end}}> Instagram</label>
-                <label><input type="radio" name="how_found" value="Google" {{if eq .Patient.HowFound "Google"}}checked{{end}}> Google</label>
-                <label><input type="radio" name="how_found" value="Indicação de conhecido" onchange="toggleField('referral_name', true)" {{if eq .Patient.HowFound "Indicação de conhecido"}}checked{{end}}> Indicação de conhecido</label>
-                <label><input type="radio" name="how_found" value="Outro" onchange="toggleField('other_source', true)" {{if eq .Patient.HowFound "Outro"}}checked{{end}}> Outro</label>
-            </div>
-            <input type="text" id="referral_name" name="referral_name" placeholder="Quem indicou?" style="display: none; margin-top: 10px;">
-            <input type="text" id="other_source" name="other_source" placeholder="Qual outro?" style="display: none; margin-top: 10px;">
-        </fieldset>
-        
-        <fieldset>
-            <legend>Notas do Médico</legend>
-            <div class="form-group">
-                <label for="notes">Notas Gerais sobre o Paciente:</label>
-                <textarea id="notes" name="notes" rows="6" placeholder="Adicione notas sobre o progresso, observações importantes, etc.">{{.Patient.Notes}}</textarea>
-            </div>
-        </fieldset>
-
-        <div class="form-actions">
-            <a href="/admin/patients" class="btn-cancel">Cancelar</a>
-            <button type="submit" class="btn-submit">Salvar Alterações</button>
-        </div>
-    </form>
-</div>
+        </form>
+    </div>
 </div>
 {{end}}

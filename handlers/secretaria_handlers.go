@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
+	"fmt"
+	
 	"github.com/gin-gonic/gin"
 	"mediflow/storage"
 )
@@ -93,7 +94,8 @@ func (h *SecretariaHandler) ViewAgenda(c *gin.Context) {
 	})
 }
 
-// ViewPatients renderiza a lista de pacientes para a secretária.
+// handlers/secretaria_handlers.go
+
 func (h *SecretariaHandler) ViewPatients(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	page, err := strconv.Atoi(pageStr)
@@ -127,10 +129,22 @@ func (h *SecretariaHandler) ViewPatients(c *gin.Context) {
 	var patients []storage.Patient
 	for rows.Next() {
 		var p storage.Patient
-		if err := rows.Scan(&p.ID, &p.Name, &p.Email, &p.Phone); err != nil {
+		// CORREÇÃO: Usar sql.NullString para campos que podem ser nulos
+		var email, phone sql.NullString
+
+		if err := rows.Scan(&p.ID, &p.Name, &email, &phone); err != nil {
 			log.Printf("Erro ao escanear paciente (secretária): %v", err)
 			continue
 		}
+		
+		// Se o valor do banco não for nulo, atribui à struct.
+		if email.Valid {
+			p.Email = email.String
+		}
+		if phone.Valid {
+			p.Phone = phone.String
+		}
+
 		patients = append(patients, p)
 	}
 
@@ -386,4 +400,31 @@ func getAppointmentsByTime(db *sql.DB, patientID int, comparison string) ([]map[
 		appointments = append(appointments, appointmentData)
 	}
 	return appointments, nil
+}
+
+// handlers/secretaria_handlers.go
+// Adicione esta nova função
+
+// ShowPatientToken exibe o link de acesso único para o paciente recém-criado.
+func (h *SecretariaHandler) ShowPatientToken(c *gin.Context) {
+	patientID := c.Param("id")
+
+	var name, token string
+	err := h.DB.QueryRow("SELECT name, access_token FROM patients WHERE id = $1", patientID).Scan(&name, &token)
+	if err != nil {
+		// Tratar erro, talvez redirecionar para a lista de pacientes
+		c.Redirect(http.StatusFound, "/secretaria/patients")
+		return
+	}
+
+	// Constrói a URL completa para o portal do paciente
+	baseURL := "http://" + c.Request.Host // Ex: http://localhost:8080
+	portalURL := fmt.Sprintf("%s/portal/login/%s", baseURL, token)
+
+	c.HTML(http.StatusOK, "secretaria/show_token.html", gin.H{
+		"Title":     "Link de Acesso do Paciente",
+		"PatientName": name,
+		"PortalURL": portalURL,
+		"ActiveNav": "new_patient",
+	})
 }

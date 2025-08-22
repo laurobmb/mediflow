@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"fmt"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"mediflow/storage"
@@ -30,7 +32,18 @@ type MonitoringData struct {
 }
 
 // --- Funções de Gestão de Utilizadores ---
+
+// handlers/admin_handlers.go
+
 func (h *AdminHandler) ViewUsers(c *gin.Context) {
+	// Pega a sessão atual
+	session := sessions.Default(c)
+	// Pega as mensagens flash de erro e sucesso da sessão
+	errorFlashes := session.Flashes("error")
+	successFlashes := session.Flashes("success")
+	// Salva a sessão para limpar as mensagens após a leitura
+	session.Save()
+
 	rows, err := h.DB.Query("SELECT id, name, email, user_type FROM users ORDER BY name ASC")
 	if err != nil {
 		log.Printf("Erro ao buscar usuários: %v", err)
@@ -38,6 +51,7 @@ func (h *AdminHandler) ViewUsers(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
+
 	var users []storage.User
 	for rows.Next() {
 		var user storage.User
@@ -47,7 +61,15 @@ func (h *AdminHandler) ViewUsers(c *gin.Context) {
 		}
 		users = append(users, user)
 	}
-	c.HTML(http.StatusOK, "admin/view_users.html", gin.H{"Title": "Gerenciar Usuários", "Users": users, "ActiveNav": "users"})
+
+	// Envia os dados para o template, incluindo as mensagens
+	c.HTML(http.StatusOK, "admin/view_users.html", gin.H{
+		"Title":          "Gerenciar Usuários",
+		"Users":          users,
+		"ActiveNav":      "users",
+		"ErrorFlashes":   errorFlashes,   // Passa as mensagens de erro
+		"SuccessFlashes": successFlashes, // Passa as mensagens de sucesso
+	})
 }
 
 func (h *AdminHandler) GetNewUserForm(c *gin.Context) {
@@ -119,17 +141,41 @@ func (h *AdminHandler) PostEditUser(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/admin/users")
 }
 
+// handlers/admin_handlers.go
+
 func (h *AdminHandler) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
-	_, err := h.DB.Exec("DELETE FROM users WHERE id = $1", id)
-	if err != nil {
-		log.Printf("Erro ao remover usuário: %v", err)
+	session := sessions.Default(c)
+
+	// --- LÓGICA ATUALIZADA ---
+	// 1. Verificar se o usuário é um médico com registros associados.
+	var count int
+	query := `SELECT COUNT(*) FROM patient_records WHERE doctor_id = $1`
+	err := h.DB.QueryRow(query, id).Scan(&count)
+
+	if err == nil && count > 0 {
+		// 2. Se houver registros, impedir a exclusão e enviar uma mensagem de erro.
+		message := fmt.Sprintf("Não é possível excluir este usuário, pois ele é responsável por %d registro(s) de prontuário. Para excluí-lo, os registros precisam ser reatribuídos a outro profissional.", count)
+		session.AddFlash(message, "error")
+		session.Save()
+	} else {
+		// 3. Se não houver registros, prosseguir com a exclusão.
+		_, err := h.DB.Exec("DELETE FROM users WHERE id = $1", id)
+		if err != nil {
+			log.Printf("Erro ao remover usuário: %v", err)
+			session.AddFlash("Ocorreu um erro ao tentar remover o usuário.", "error")
+			session.Save()
+		} else {
+			session.AddFlash("Usuário removido com sucesso!", "success")
+			session.Save()
+		}
 	}
+
 	c.Redirect(http.StatusFound, "/admin/users")
 }
 
+// handlers/admin_handlers.go
 
-// --- Funções de Gestão de Pacientes ---
 func (h *AdminHandler) ViewPatients(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	page, err := strconv.Atoi(pageStr)
@@ -139,6 +185,7 @@ func (h *AdminHandler) ViewPatients(c *gin.Context) {
 	searchTerm := c.Query("search")
 	pageSize := 10
 	offset := (page - 1) * pageSize
+
 	query := `SELECT id, name, email, phone FROM patients`
 	countQuery := `SELECT COUNT(*) FROM patients`
 	var args []interface{}
@@ -152,6 +199,7 @@ func (h *AdminHandler) ViewPatients(c *gin.Context) {
 	}
 	query += ` ORDER BY name ASC LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
 	args = append(args, pageSize, offset)
+
 	var totalRecords int
 	err = h.DB.QueryRow(countQuery, countArgs...).Scan(&totalRecords)
 	if err != nil {
@@ -160,6 +208,7 @@ func (h *AdminHandler) ViewPatients(c *gin.Context) {
 		return
 	}
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
+
 	rows, err := h.DB.Query(query, args...)
 	if err != nil {
 		log.Printf("Erro ao buscar pacientes: %v", err)
@@ -167,15 +216,29 @@ func (h *AdminHandler) ViewPatients(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
+
 	var patients []storage.Patient
 	for rows.Next() {
 		var patient storage.Patient
-		if err := rows.Scan(&patient.ID, &patient.Name, &patient.Email, &patient.Phone); err != nil {
+		// CORREÇÃO: Usar sql.NullString para campos que podem ser nulos
+		var email, phone sql.NullString
+
+		if err := rows.Scan(&patient.ID, &patient.Name, &email, &phone); err != nil {
 			log.Printf("Erro ao escanear paciente: %v", err)
 			continue
 		}
+
+		// Se o valor do banco não for nulo, atribui à struct. Senão, fica como string vazia.
+		if email.Valid {
+			patient.Email = email.String
+		}
+		if phone.Valid {
+			patient.Phone = phone.String
+		}
+
 		patients = append(patients, patient)
 	}
+
 	c.HTML(http.StatusOK, "admin/view_patients.html", gin.H{
 		"Title":       "Gerenciar Pacientes",
 		"Patients":    patients,
@@ -216,6 +279,7 @@ func (h *AdminHandler) GetNewPatientForm(c *gin.Context) {
 		"Title":     "Adicionar Novo Paciente",
 		"Action":    "/admin/patients/new",
 		"IsNew":     true,
+		"Patient":   storage.Patient{}, // Envia um paciente vazio para o template
 		"ActiveNav": "patients",
 	})
 }
@@ -228,114 +292,222 @@ func (h *AdminHandler) PostNewPatient(c *gin.Context) {
 		return
 	}
 	
-	query := `INSERT INTO patients (consent_date, consent_name, consent_cpf_rg, signature_date, signature_location, name, address_street, address_number, address_neighborhood, address_city, address_state, phone, mobile, dob, age, gender, marital_status, children, num_children, profession, email, emergency_contact, emergency_phone, emergency_other, repetitive_effort, physical_activity, smoker, alcohol, mental_disorder, religion, medication, surgery, allergies, anxiety_level, anger_level, fear_level, sadness_level, joy_level, energy_level, main_complaint, complaint_history, signs_symptoms, current_treatment, how_found, notes, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47)`
+	query := `
+        INSERT INTO patients (
+            consent_date, consent_name, consent_cpf_rg, signature_date, signature_location, 
+            name, address_street, address_number, address_neighborhood, address_city, address_state, 
+            phone, mobile, dob, age, gender, marital_status, children, num_children, profession, email, 
+            emergency_contact, emergency_phone, emergency_other, 
+            created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+    `
 	
-	_, err := h.DB.Exec(query, toDate(patient.ConsentDate), patient.ConsentName, patient.ConsentCpfRg, toDate(patient.SignatureDate), patient.SignatureLocation, patient.Name, patient.AddressStreet, patient.AddressNumber, patient.AddressNeighborhood, patient.AddressCity, patient.AddressState, patient.Phone, patient.Mobile, toDate(patient.DOB), patient.Age, patient.Gender, patient.MaritalStatus, patient.Children, patient.NumChildren, patient.Profession, patient.Email, patient.EmergencyContact, patient.EmergencyPhone, patient.EmergencyOther, patient.RepetitiveEffort, patient.PhysicalActivity, patient.Smoker, patient.Alcohol, patient.MentalDisorder, patient.Religion, patient.Medication, patient.Surgery, patient.Allergies, patient.AnxietyLevel, patient.AngerLevel, patient.FearLevel, patient.SadnessLevel, patient.JoyLevel, patient.EnergyLevel, patient.MainComplaint, patient.ComplaintHistory, patient.SignsSymptoms, patient.CurrentTreatment, patient.HowFound, patient.Notes, time.Now(), time.Now())
+	_, err := h.DB.Exec(query, 
+		toDate(patient.ConsentDate), patient.ConsentName, patient.ConsentCpfRg, toDate(patient.SignatureDate), patient.SignatureLocation, 
+		patient.Name, patient.AddressStreet, patient.AddressNumber, patient.AddressNeighborhood, patient.AddressCity, patient.AddressState, 
+		patient.Phone, patient.Mobile, toDate(patient.DOB), patient.Age, patient.Gender, patient.MaritalStatus, patient.Children, patient.NumChildren, 
+		patient.Profession, patient.Email, patient.EmergencyContact, patient.EmergencyPhone, patient.EmergencyOther, 
+		time.Now(), time.Now())
 	if err != nil {
 		log.Printf("Erro ao inserir novo paciente pelo admin: %v", err)
 	}
 	c.Redirect(http.StatusFound, "/admin/patients")
 }
 
+
+// handlers/admin_handlers.go
+
+// Estrutura para passar todos os dados necessários para o template
+type PatientEditPageData struct {
+	Title        string
+	Action       string
+	IsNew        bool
+	ActiveNav    string
+	Patient      storage.Patient
+	LatestRecord storage.PatientRecord   // O registro mais recente para preencher o formulário
+	History      []storage.PatientRecord // Todos os registros para exibir na lista de histórico
+}
+
+// GetEditPatientForm (VERSÃO FINAL E COMPLETA)
+// Carrega todos os dados de um paciente (cadastrais e clínicos) para a página de edição.
 func (h *AdminHandler) GetEditPatientForm(c *gin.Context) {
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
 
-	var patient storage.Patient
-	query := `SELECT id, consent_date, consent_name, consent_cpf_rg, signature_date, signature_location, name, address_street, address_number, address_neighborhood, address_city, address_state, phone, mobile, dob, age, gender, marital_status, children, num_children, profession, email, emergency_contact, emergency_phone, emergency_other, repetitive_effort, physical_activity, smoker, alcohol, mental_disorder, religion, medication, surgery, allergies, anxiety_level, anger_level, fear_level, sadness_level, joy_level, energy_level, main_complaint, complaint_history, signs_symptoms, current_treatment, how_found, notes FROM patients WHERE id = $1`
-	
-	var consentDate, signatureDate, dob sql.NullTime
-	var consentName, consentCpfRg, signatureLocation, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, phone, mobile, gender, maritalStatus, children, profession, email, emergencyContact, emergencyPhone, emergencyOther, repetitiveEffort, physicalActivity, smoker, alcohol, mentalDisorder, religion, medication, surgery, allergies, mainComplaint, complaintHistory, signsSymptoms, currentTreatment, howFound, notes sql.NullString
-	var age, numChildren, anxietyLevel, angerLevel, fearLevel, sadnessLevel, joyLevel, energyLevel sql.NullInt64
+	pageData := PatientEditPageData{
+		Title:     "Editar Paciente e Prontuário",
+		Action:    "/admin/patients/edit/" + idStr,
+		IsNew:     false,
+		ActiveNav: "patients",
+	}
 
-	err := h.DB.QueryRow(query, id).Scan(
-		&patient.ID, &consentDate, &consentName, &consentCpfRg, &signatureDate, &signatureLocation, 
-		&patient.Name, &addressStreet, &addressNumber, &addressNeighborhood, &addressCity, &addressState, 
-		&phone, &mobile, &dob, &age, &gender, &maritalStatus, &children, &numChildren, &profession, &email, 
-		&emergencyContact, &emergencyPhone, &emergencyOther, 
-		&repetitiveEffort, &physicalActivity, &smoker, &alcohol, &mentalDisorder, &religion, 
-		&medication, &surgery, &allergies, 
-		&anxietyLevel, &angerLevel, &fearLevel, &sadnessLevel, &joyLevel, &energyLevel, 
-		&mainComplaint, &complaintHistory, &signsSymptoms, &currentTreatment, &howFound, &notes,
+	// 1. Buscar os dados cadastrais do paciente da tabela 'patients'
+	patientQuery := `SELECT id, name, consent_date, consent_name, consent_cpf_rg, signature_date, signature_location, 
+		address_street, address_number, address_neighborhood, address_city, address_state, 
+		phone, mobile, dob, age, gender, marital_status, children, num_children, profession, email, 
+		emergency_contact, emergency_phone, emergency_other
+		FROM patients WHERE id = $1`
+
+	var consentDate, signatureDate, dob sql.NullTime
+	var consentName, consentCpfRg, signatureLocation, addressStreet, addressNumber, addressNeighborhood, addressCity, addressState, phone, mobile, gender, maritalStatus, children, profession, email, emergencyContact, emergencyPhone, emergencyOther sql.NullString
+	var age, numChildren sql.NullInt64
+
+	// Scan completo para ler todos os campos do banco
+	err := h.DB.QueryRow(patientQuery, id).Scan(
+		&pageData.Patient.ID, &pageData.Patient.Name, &consentDate, &consentName, &consentCpfRg, &signatureDate, &signatureLocation,
+		&addressStreet, &addressNumber, &addressNeighborhood, &addressCity, &addressState,
+		&phone, &mobile, &dob, &age, &gender, &maritalStatus, &children, &numChildren, &profession, &email,
+		&emergencyContact, &emergencyPhone, &emergencyOther,
 	)
-	
 	if err != nil {
 		log.Printf("Erro ao buscar paciente para edição: %v", err)
 		c.Redirect(http.StatusFound, "/admin/patients")
 		return
 	}
 
-	if consentDate.Valid { patient.ConsentDate = consentDate.Time.Format("2006-01-02") }
-	if consentName.Valid { patient.ConsentName = consentName.String }
-	if consentCpfRg.Valid { patient.ConsentCpfRg = consentCpfRg.String }
-	if signatureDate.Valid { patient.SignatureDate = signatureDate.Time.Format("2006-01-02") }
-	if signatureLocation.Valid { patient.SignatureLocation = signatureLocation.String }
-	if addressStreet.Valid { patient.AddressStreet = addressStreet.String }
-	if addressNumber.Valid { patient.AddressNumber = addressNumber.String }
-	if addressNeighborhood.Valid { patient.AddressNeighborhood = addressNeighborhood.String }
-	if addressCity.Valid { patient.AddressCity = addressCity.String }
-	if addressState.Valid { patient.AddressState = addressState.String }
-	if phone.Valid { patient.Phone = phone.String }
-	if mobile.Valid { patient.Mobile = mobile.String }
-	if dob.Valid { patient.DOB = dob.Time.Format("2006-01-02") }
-	if age.Valid { patient.Age = int(age.Int64) }
-	if gender.Valid { patient.Gender = gender.String }
-	if maritalStatus.Valid { patient.MaritalStatus = maritalStatus.String }
-	if children.Valid { patient.Children = children.String }
-	if numChildren.Valid { patient.NumChildren = int(numChildren.Int64) }
-	if profession.Valid { patient.Profession = profession.String }
-	if email.Valid { patient.Email = email.String }
-	if emergencyContact.Valid { patient.EmergencyContact = emergencyContact.String }
-	if emergencyPhone.Valid { patient.EmergencyPhone = emergencyPhone.String }
-	if emergencyOther.Valid { patient.EmergencyOther = emergencyOther.String }
-	if repetitiveEffort.Valid { patient.RepetitiveEffort = repetitiveEffort.String }
-	if physicalActivity.Valid { patient.PhysicalActivity = physicalActivity.String }
-	if smoker.Valid { patient.Smoker = smoker.String }
-	if alcohol.Valid { patient.Alcohol = alcohol.String }
-	if mentalDisorder.Valid { patient.MentalDisorder = mentalDisorder.String }
-	if religion.Valid { patient.Religion = religion.String }
-	if medication.Valid { patient.Medication = medication.String }
-	if surgery.Valid { patient.Surgery = surgery.String }
-	if allergies.Valid { patient.Allergies = allergies.String }
-	if anxietyLevel.Valid { patient.AnxietyLevel = int(anxietyLevel.Int64) }
-	if angerLevel.Valid { patient.AngerLevel = int(angerLevel.Int64) }
-	if fearLevel.Valid { patient.FearLevel = int(fearLevel.Int64) }
-	if sadnessLevel.Valid { patient.SadnessLevel = int(sadnessLevel.Int64) }
-	if joyLevel.Valid { patient.JoyLevel = int(joyLevel.Int64) }
-	if energyLevel.Valid { patient.EnergyLevel = int(energyLevel.Int64) }
-	if mainComplaint.Valid { patient.MainComplaint = mainComplaint.String }
-	if complaintHistory.Valid { patient.ComplaintHistory = complaintHistory.String }
-	if signsSymptoms.Valid { patient.SignsSymptoms = signsSymptoms.String }
-	if currentTreatment.Valid { patient.CurrentTreatment = currentTreatment.String }
-	if howFound.Valid { patient.HowFound = howFound.String }
-	if notes.Valid { patient.Notes = notes.String }
+	// Bloco completo para transferir dados nulos do banco para a struct
+	if consentDate.Valid { pageData.Patient.ConsentDate = consentDate.Time.Format("2006-01-02") }
+	if consentName.Valid { pageData.Patient.ConsentName = consentName.String }
+	if consentCpfRg.Valid { pageData.Patient.ConsentCpfRg = consentCpfRg.String }
+	if signatureDate.Valid { pageData.Patient.SignatureDate = signatureDate.Time.Format("2006-01-02") }
+	if signatureLocation.Valid { pageData.Patient.SignatureLocation = signatureLocation.String }
+	if addressStreet.Valid { pageData.Patient.AddressStreet = addressStreet.String }
+	if addressNumber.Valid { pageData.Patient.AddressNumber = addressNumber.String }
+	if addressNeighborhood.Valid { pageData.Patient.AddressNeighborhood = addressNeighborhood.String }
+	if addressCity.Valid { pageData.Patient.AddressCity = addressCity.String }
+	if addressState.Valid { pageData.Patient.AddressState = addressState.String }
+	if phone.Valid { pageData.Patient.Phone = phone.String }
+	if mobile.Valid { pageData.Patient.Mobile = mobile.String }
+	if dob.Valid { pageData.Patient.DOB = dob.Time.Format("2006-01-02") }
+	if age.Valid { pageData.Patient.Age = int(age.Int64) }
+	if gender.Valid { pageData.Patient.Gender = gender.String }
+	if maritalStatus.Valid { pageData.Patient.MaritalStatus = maritalStatus.String }
+	if children.Valid { pageData.Patient.Children = children.String }
+	if numChildren.Valid { pageData.Patient.NumChildren = int(numChildren.Int64) }
+	if profession.Valid { pageData.Patient.Profession = profession.String }
+	if email.Valid { pageData.Patient.Email = email.String }
+	if emergencyContact.Valid { pageData.Patient.EmergencyContact = emergencyContact.String }
+	if emergencyPhone.Valid { pageData.Patient.EmergencyPhone = emergencyPhone.String }
+	if emergencyOther.Valid { pageData.Patient.EmergencyOther = emergencyOther.String }
 
-	c.HTML(http.StatusOK, "admin/patient_form.html", gin.H{
-		"Title":     "Editar Paciente",
-		"Action":    "/admin/patients/edit/" + idStr,
-		"IsNew":     false,
-		"Patient":   patient,
-		"ActiveNav": "patients",
-	})
+
+	// 2. Buscar o registro clínico MAIS RECENTE para preencher os campos de avaliação
+	latestRecordQuery := `
+		SELECT id, patient_id, doctor_id, record_date, anxiety_level, anger_level, fear_level, sadness_level, 
+		joy_level, energy_level, main_complaint, complaint_history, signs_symptoms, current_treatment, notes
+		FROM patient_records
+		WHERE patient_id = $1 ORDER BY record_date DESC LIMIT 1`
+	
+	err = h.DB.QueryRow(latestRecordQuery, id).Scan(
+		&pageData.LatestRecord.ID, &pageData.LatestRecord.PatientID, &pageData.LatestRecord.DoctorID, &pageData.LatestRecord.RecordDate,
+		&pageData.LatestRecord.AnxietyLevel, &pageData.LatestRecord.AngerLevel, &pageData.LatestRecord.FearLevel, &pageData.LatestRecord.SadnessLevel,
+		&pageData.LatestRecord.JoyLevel, &pageData.LatestRecord.EnergyLevel, &pageData.LatestRecord.MainComplaint, &pageData.LatestRecord.ComplaintHistory,
+		&pageData.LatestRecord.SignsSymptoms, &pageData.LatestRecord.CurrentTreatment, &pageData.LatestRecord.Notes,
+	)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("Erro ao buscar último registro do paciente: %v", err)
+	}
+
+	// 3. Buscar TODO o histórico de registros para exibir na lista
+	historyQuery := `
+		SELECT r.id, r.record_date, u.name as doctor_name,
+			   r.main_complaint, r.complaint_history, r.signs_symptoms, r.current_treatment, r.notes,
+			   r.anxiety_level, r.anger_level, r.fear_level, r.sadness_level, r.joy_level, r.energy_level
+		FROM patient_records r JOIN users u ON r.doctor_id = u.id
+		WHERE r.patient_id = $1 ORDER BY r.record_date DESC`
+
+	rows, err := h.DB.Query(historyQuery, id)
+	if err != nil {
+		log.Printf("Erro ao buscar histórico do paciente: %v", err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var rec storage.PatientRecord
+			err := rows.Scan(
+				&rec.ID, &rec.RecordDate, &rec.DoctorName,
+				&rec.MainComplaint, &rec.ComplaintHistory, &rec.SignsSymptoms, &rec.CurrentTreatment, &rec.Notes,
+				&rec.AnxietyLevel, &rec.AngerLevel, &rec.FearLevel, &rec.SadnessLevel, &rec.JoyLevel, &rec.EnergyLevel,
+			)
+			if err == nil {
+				pageData.History = append(pageData.History, rec)
+			}
+		}
+	}
+
+	c.HTML(http.StatusOK, "admin/patient_form.html", pageData)
 }
 
+// handlers/admin_handlers.go
 
+// PostEditPatient (VERSÃO CORRIGIDA)
+// Agora atualiza a tabela 'patients' com os dados clínicos mais recentes E cria o registro histórico.
 func (h *AdminHandler) PostEditPatient(c *gin.Context) {
-    idStr := c.Param("id")
-    var patient storage.Patient
-    if err := c.ShouldBind(&patient); err != nil {
-        log.Printf("Erro ao fazer bind do formulário de edição do paciente: %v", err)
-        c.Redirect(http.StatusFound, "/admin/patients")
-        return
-    }
+	idStr := c.Param("id")
+	patientID, _ := strconv.Atoi(idStr)
 
-    query := `UPDATE patients SET consent_date=$1, consent_name=$2, consent_cpf_rg=$3, signature_date=$4, signature_location=$5, name=$6, address_street=$7, address_number=$8, address_neighborhood=$9, address_city=$10, address_state=$11, phone=$12, mobile=$13, dob=$14, age=$15, gender=$16, marital_status=$17, children=$18, num_children=$19, profession=$20, email=$21, emergency_contact=$22, emergency_phone=$23, emergency_other=$24, repetitive_effort=$25, physical_activity=$26, smoker=$27, alcohol=$28, mental_disorder=$29, religion=$30, medication=$31, surgery=$32, allergies=$33, anxiety_level=$34, anger_level=$35, fear_level=$36, sadness_level=$37, joy_level=$38, energy_level=$39, main_complaint=$40, complaint_history=$41, signs_symptoms=$42, current_treatment=$43, how_found=$44, notes=$45, updated_at=$46 WHERE id=$47`
-    
-    _, err := h.DB.Exec(query, toDate(patient.ConsentDate), patient.ConsentName, patient.ConsentCpfRg, toDate(patient.SignatureDate), patient.SignatureLocation, patient.Name, patient.AddressStreet, patient.AddressNumber, patient.AddressNeighborhood, patient.AddressCity, patient.AddressState, patient.Phone, patient.Mobile, toDate(patient.DOB), patient.Age, patient.Gender, patient.MaritalStatus, patient.Children, patient.NumChildren, patient.Profession, patient.Email, patient.EmergencyContact, patient.EmergencyPhone, patient.EmergencyOther, patient.RepetitiveEffort, patient.PhysicalActivity, patient.Smoker, patient.Alcohol, patient.MentalDisorder, patient.Religion, patient.Medication, patient.Surgery, patient.Allergies, patient.AnxietyLevel, patient.AngerLevel, patient.FearLevel, patient.SadnessLevel, patient.JoyLevel, patient.EnergyLevel, patient.MainComplaint, patient.ComplaintHistory, patient.SignsSymptoms, patient.CurrentTreatment, patient.HowFound, patient.Notes, time.Now(), idStr)
-    if err != nil {
-        log.Printf("Erro ao atualizar paciente: %v", err)
-    }
-    c.Redirect(http.StatusFound, "/admin/patients")
+	// --- LÓGICA ATUALIZADA ---
+
+	// 1. ATUALIZAR dados cadastrais E CLÍNICOS na tabela 'patients'
+	// A query agora inclui todos os campos do formulário para garantir que o estado mais recente seja salvo.
+	queryPatients := `
+		UPDATE patients SET 
+			consent_date=$1, consent_name=$2, consent_cpf_rg=$3, signature_date=$4, signature_location=$5, 
+			name=$6, address_street=$7, address_number=$8, address_neighborhood=$9, address_city=$10, address_state=$11, 
+			phone=$12, mobile=$13, dob=$14, age=$15, gender=$16, marital_status=$17, children=$18, num_children=$19, 
+			profession=$20, email=$21, emergency_contact=$22, emergency_phone=$23, emergency_other=$24, 
+			-- Campos clínicos adicionados à atualização
+			anxiety_level=$25, anger_level=$26, fear_level=$27, sadness_level=$28, joy_level=$29, energy_level=$30,
+			main_complaint=$31, complaint_history=$32, signs_symptoms=$33, current_treatment=$34, notes=$35,
+			updated_at=$36 
+		WHERE id=$37`
+
+	// Pega e converte todos os valores do formulário
+	age, _ := strconv.Atoi(c.PostForm("age"))
+	numChildren, _ := strconv.Atoi(c.PostForm("num_children"))
+	anxiety, _ := strconv.Atoi(c.PostForm("anxiety_level"))
+	anger, _ := strconv.Atoi(c.PostForm("anger_level"))
+	fear, _ := strconv.Atoi(c.PostForm("fear_level"))
+	sadness, _ := strconv.Atoi(c.PostForm("sadness_level"))
+	joy, _ := strconv.Atoi(c.PostForm("joy_level"))
+	energy, _ := strconv.Atoi(c.PostForm("energy_level"))
+
+	_, err := h.DB.Exec(queryPatients,
+		// Dados cadastrais
+		toDate(c.PostForm("consent_date")), c.PostForm("consent_name_inline"), c.PostForm("consent_cpf_rg_inline"), toDate(c.PostForm("signature_date")), c.PostForm("signature_location"),
+		c.PostForm("client_name"), c.PostForm("address_street"), c.PostForm("address_number"), c.PostForm("address_neighborhood"), c.PostForm("address_city"), c.PostForm("address_state"),
+		c.PostForm("phone"), c.PostForm("mobile"), toDate(c.PostForm("dob")), age, c.PostForm("gender"), c.PostForm("marital_status"), c.PostForm("children"), numChildren,
+		c.PostForm("profession"), c.PostForm("email"), c.PostForm("emergency_contact_name"), c.PostForm("emergency_contact_phone"), c.PostForm("emergency_contact_other"),
+		// Dados clínicos
+		anxiety, anger, fear, sadness, joy, energy,
+		c.PostForm("main_complaint"), c.PostForm("complaint_history"), c.PostForm("signs_symptoms"), c.PostForm("current_treatment"), c.PostForm("notes"),
+		// Timestamp e ID
+		time.Now(), patientID)
+
+	if err != nil {
+		log.Printf("Erro ao atualizar dados do paciente na tabela 'patients': %v", err)
+	}
+
+	// 2. INSERIR o mesmo registro na tabela de histórico 'patient_records'
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int)
+
+	queryRecords := `
+		INSERT INTO patient_records (
+			patient_id, doctor_id, anxiety_level, anger_level, fear_level, sadness_level, 
+			joy_level, energy_level, main_complaint, complaint_history, signs_symptoms, 
+			current_treatment, notes, record_date
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+
+	_, err = h.DB.Exec(queryRecords,
+		patientID, userID, anxiety, anger, fear, sadness, joy, energy,
+		c.PostForm("main_complaint"), c.PostForm("complaint_history"), c.PostForm("signs_symptoms"),
+		c.PostForm("current_treatment"), c.PostForm("notes"), time.Now())
+
+	if err != nil {
+		log.Printf("Erro ao inserir novo registro de prontuário: %v", err)
+	}
+
+	c.Redirect(http.StatusFound, "/admin/patients/edit/"+idStr)
 }
 
 func (h *AdminHandler) DeletePatient(c *gin.Context) {
@@ -359,7 +531,75 @@ func toDate(dateStr string) interface{} {
     return t
 }
 
-// --- NOVAS Funções para Perfil e Agendamentos ---
+// --- Funções para Perfil e Prontuário ---
+
+// GetPatientRecord exibe o prontuário do paciente e o formulário para adicionar uma nova entrada.
+func (h *AdminHandler) GetPatientRecord(c *gin.Context) {
+	idStr := c.Param("id")
+	patientID, _ := strconv.Atoi(idStr)
+
+	var patient storage.Patient
+	h.DB.QueryRow("SELECT id, name FROM patients WHERE id = $1", patientID).Scan(&patient.ID, &patient.Name)
+
+	query := `
+        SELECT r.id, r.record_date, r.main_complaint, r.notes, u.name as doctor_name
+        FROM patient_records r
+        JOIN users u ON r.doctor_id = u.id
+        WHERE r.patient_id = $1
+        ORDER BY r.record_date DESC
+    `
+	rows, err := h.DB.Query(query, patientID)
+	if err != nil {
+		log.Printf("Erro ao buscar histórico do paciente: %v", err)
+	}
+	defer rows.Close()
+
+	var records []storage.PatientRecord
+	for rows.Next() {
+		var rec storage.PatientRecord
+		rows.Scan(&rec.ID, &rec.RecordDate, &rec.MainComplaint, &rec.Notes, &rec.DoctorName)
+		records = append(records, rec)
+	}
+
+	c.HTML(http.StatusOK, "admin/patient_record.html", gin.H{
+		"Title":     "Prontuário de " + patient.Name,
+		"Patient":   patient,
+		"Records":   records,
+		"ActiveNav": "patients",
+	})
+}
+
+// PostNewPatientRecord guarda uma nova entrada no prontuário do paciente.
+func (h *AdminHandler) PostNewPatientRecord(c *gin.Context) {
+	var record storage.PatientRecord
+	if err := c.ShouldBind(&record); err != nil {
+		log.Printf("Erro ao fazer bind do registo do paciente: %v", err)
+		c.Redirect(http.StatusFound, "/admin/patients")
+		return
+	}
+
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int)
+	record.DoctorID = userID
+
+	query := `
+        INSERT INTO patient_records (
+            patient_id, doctor_id, anxiety_level, anger_level, fear_level, 
+            sadness_level, joy_level, energy_level, main_complaint, 
+            complaint_history, signs_symptoms, current_treatment, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    `
+	_, err := h.DB.Exec(query,
+		record.PatientID, record.DoctorID, record.AnxietyLevel, record.AngerLevel, record.FearLevel,
+		record.SadnessLevel, record.JoyLevel, record.EnergyLevel, record.MainComplaint,
+		record.ComplaintHistory, record.SignsSymptoms, record.CurrentTreatment, record.Notes,
+	)
+	if err != nil {
+		log.Printf("Erro ao inserir novo registo de paciente: %v", err)
+	}
+
+	c.Redirect(http.StatusFound, "/admin/patients/record/"+strconv.Itoa(record.PatientID))
+}
 
 // GetPatientProfile busca e exibe o perfil completo de um paciente, incluindo consultas.
 func (h *AdminHandler) GetPatientProfile(c *gin.Context) {
@@ -474,99 +714,260 @@ func (h *AdminHandler) getAppointmentsByTime(patientID int, comparison string) (
     return appointments, nil
 }
 
-// SystemMonitoring renderiza a página de monitoramento do sistema.
+// --- FUNÇÃO DE MONITORAMENTO ATUALIZADA ---
 func (h *AdminHandler) SystemMonitoring(c *gin.Context) {
-	daysStr := c.DefaultQuery("days", "7")
-	days, _ := strconv.Atoi(daysStr)
-	if days == 0 {
-		days = 7
-	}
-	startDate := time.Now().AddDate(0, 0, -days)
+    daysStr := c.DefaultQuery("days", "7")
+    days, _ := strconv.Atoi(daysStr)
+    if days == 0 {
+        days = 7
+    }
+    startDate := time.Now().AddDate(0, 0, -days)
 
-	data := MonitoringData{
-		ActiveDaysFilter: days,
-	}
+    data := MonitoringData{
+        ActiveDaysFilter: days,
+    }
 
-	// 1. Próximas Consultas
-	rows, err := h.DB.Query(`
+    rows, err := h.DB.Query(`
         SELECT p.name, u.name, a.start_time 
         FROM appointments a
         JOIN patients p ON a.patient_id = p.id
         JOIN users u ON a.doctor_id = u.id
         WHERE a.start_time >= NOW() ORDER BY a.start_time ASC LIMIT 10`)
-	if err != nil {
+    if err != nil {
 		log.Printf("Erro ao buscar próximas consultas: %v", err)
-		c.HTML(http.StatusInternalServerError, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Não foi possível carregar os dados de monitoramento."})
+        c.HTML(http.StatusInternalServerError, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Não foi possível carregar os dados de monitoramento."})
 		return
 	}
-	for rows.Next() {
-		var patientName, doctorName string
-		var startTime time.Time
-		rows.Scan(&patientName, &doctorName, &startTime)
-		data.UpcomingAppointments = append(data.UpcomingAppointments, map[string]interface{}{
-			"PatientName": patientName,
-			"DoctorName":  doctorName,
-			"StartTime":   startTime,
-		})
-	}
-	rows.Close()
+    for rows.Next() {
+        var patientName, doctorName string
+        var startTime time.Time
+        rows.Scan(&patientName, &doctorName, &startTime)
+        data.UpcomingAppointments = append(data.UpcomingAppointments, map[string]interface{}{
+            "PatientName": patientName,
+            "DoctorName":  doctorName,
+            "StartTime":   startTime,
+        })
+    }
+    rows.Close()
 
-	// 2. Consultas Concluídas no período
-	err = h.DB.QueryRow("SELECT COUNT(*) FROM appointments WHERE status = 'concluido' AND start_time >= $1", startDate).Scan(&data.CompletedCount)
-	if err != nil {
-		log.Printf("Erro ao contar consultas concluídas: %v", err)
-	}
+    err = h.DB.QueryRow("SELECT COUNT(*) FROM appointments WHERE status = 'concluido' AND start_time >= $1", startDate).Scan(&data.CompletedCount)
+    if err != nil {
+        log.Printf("Erro ao contar consultas concluídas: %v", err)
+    }
 
-	// 3. Estatísticas de "Como nos encontrou"
-	data.HowFoundStats = make(map[string]int)
-	rows, err = h.DB.Query("SELECT how_found, COUNT(*) FROM patients WHERE created_at >= $1 AND how_found IS NOT NULL AND how_found != '' GROUP BY how_found", startDate)
-	if err != nil {
-		log.Printf("Erro ao buscar fontes de aquisição: %v", err)
-	} else {
-		totalNew := 0
-		for rows.Next() {
-			var source string
-			var count int
-			rows.Scan(&source, &count)
-			data.HowFoundStats[source] = count
-			totalNew += count
-		}
-		data.TotalNewPatients = totalNew
-		rows.Close()
-	}
+    data.HowFoundStats = make(map[string]int)
+    rows, err = h.DB.Query("SELECT how_found, COUNT(*) FROM patients WHERE created_at >= $1 AND how_found IS NOT NULL AND how_found != '' GROUP BY how_found", startDate)
+    if err != nil {
+        log.Printf("Erro ao buscar fontes de aquisição: %v", err)
+    } else {
+        totalNew := 0
+        for rows.Next() {
+            var source string
+            var count int
+            rows.Scan(&source, &count)
+            data.HowFoundStats[source] = count
+            totalNew += count
+        }
+        data.TotalNewPatients = totalNew
+        rows.Close()
+    }
 
-	// 4. Estatísticas do Perfil
-	data.ProfileStats = make(map[string]int)
-	var physicalActivity, smoker, alcohol, repetitiveEffort, mentalDisorder, medication int
-	h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE physical_activity = 'Sim' AND created_at >= $1", startDate).Scan(&physicalActivity)
-	h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE smoker != 'Não' AND created_at >= $1", startDate).Scan(&smoker)
-	h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE alcohol = 'Sim' AND created_at >= $1", startDate).Scan(&alcohol)
-	h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE repetitive_effort = 'Sim' AND created_at >= $1", startDate).Scan(&repetitiveEffort)
-	h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE mental_disorder = 'Sim' AND created_at >= $1", startDate).Scan(&mentalDisorder)
-	h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE medication = 'Sim' AND created_at >= $1", startDate).Scan(&medication)
-	data.ProfileStats["PhysicalActivity"] = physicalActivity
-	data.ProfileStats["Smoker"] = smoker
-	data.ProfileStats["Alcohol"] = alcohol
-	data.ProfileStats["RepetitiveEffort"] = repetitiveEffort
-	data.ProfileStats["MentalDisorder"] = mentalDisorder
-	data.ProfileStats["Medication"] = medication
+    data.ProfileStats = make(map[string]int)
+    var physicalActivity, smoker, alcohol, repetitiveEffort, mentalDisorder, medication int
+    h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE physical_activity = 'Sim' AND created_at >= $1", startDate).Scan(&physicalActivity)
+    h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE smoker != 'Não' AND created_at >= $1", startDate).Scan(&smoker)
+    h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE alcohol = 'Sim' AND created_at >= $1", startDate).Scan(&alcohol)
+    h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE repetitive_effort = 'Sim' AND created_at >= $1", startDate).Scan(&repetitiveEffort)
+    h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE mental_disorder = 'Sim' AND created_at >= $1", startDate).Scan(&mentalDisorder)
+    h.DB.QueryRow("SELECT COUNT(*) FROM patients WHERE medication = 'Sim' AND created_at >= $1", startDate).Scan(&medication)
+    data.ProfileStats["PhysicalActivity"] = physicalActivity
+    data.ProfileStats["Smoker"] = smoker
+    data.ProfileStats["Alcohol"] = alcohol
+    data.ProfileStats["RepetitiveEffort"] = repetitiveEffort
+    data.ProfileStats["MentalDisorder"] = mentalDisorder
+    data.ProfileStats["Medication"] = medication
 
-	// 5. Médias Emocionais
-	data.EmotionalAverages = make(map[string]float64)
-	var anxiety, anger, fear, sadness, joy, energy float64
-	h.DB.QueryRow("SELECT COALESCE(AVG(anxiety_level), 0), COALESCE(AVG(anger_level), 0), COALESCE(AVG(fear_level), 0), COALESCE(AVG(sadness_level), 0), COALESCE(AVG(joy_level), 0), COALESCE(AVG(energy_level), 0) FROM patients WHERE created_at >= $1", startDate).Scan(
-		&anxiety, &anger, &fear, &sadness, &joy, &energy,
-	)
-	data.EmotionalAverages["Anxiety"] = anxiety
-	data.EmotionalAverages["Anger"] = anger
-	data.EmotionalAverages["Fear"] = fear
-	data.EmotionalAverages["Sadness"] = sadness
-	data.EmotionalAverages["Joy"] = joy
-	data.EmotionalAverages["Energy"] = energy
+    data.EmotionalAverages = make(map[string]float64)
+    var anxiety, anger, fear, sadness, joy, energy float64
+    h.DB.QueryRow("SELECT COALESCE(AVG(anxiety_level), 0), COALESCE(AVG(anger_level), 0), COALESCE(AVG(fear_level), 0), COALESCE(AVG(sadness_level), 0), COALESCE(AVG(joy_level), 0), COALESCE(AVG(energy_level), 0) FROM patients WHERE created_at >= $1", startDate).Scan(
+        &anxiety, &anger, &fear, &sadness, &joy, &energy,
+    )
+    data.EmotionalAverages["Anxiety"] = anxiety
+    data.EmotionalAverages["Anger"] = anger
+    data.EmotionalAverages["Fear"] = fear
+    data.EmotionalAverages["Sadness"] = sadness
+    data.EmotionalAverages["Joy"] = joy
+    data.EmotionalAverages["Energy"] = energy
 
-	c.HTML(http.StatusOK, "admin/monitoring.html", gin.H{
-		"Title":     "Monitoramento do Sistema",
-		"Data":      data,
-		"ActiveNav": "monitoring",
+    c.HTML(http.StatusOK, "admin/monitoring.html", gin.H{
+        "Title":     "Monitoramento do Sistema",
+        "Data":      data,
+        "ActiveNav": "monitoring",
+    })
+}
+
+// AdminDashboard renderiza a dashboard principal do admin.
+func (h *AdminHandler) AdminDashboard(c *gin.Context) {
+	c.HTML(http.StatusOK, "admin/admin_dashboard.html", gin.H{
+		"Title":     "Dashboard do Admin",
+		"ActiveNav": "dashboard",
 	})
+}
+
+// ViewAgenda renderiza a agenda para o admin.
+func (h *AdminHandler) ViewAgenda(c *gin.Context) {
+    dateParam := c.Query("date")
+    var referenceDate time.Time
+    if dateParam == "" {
+        referenceDate = time.Now()
+    } else {
+        referenceDate, _ = time.Parse("2006-01-02", dateParam)
+    }
+
+    weekday := int(referenceDate.Weekday())
+    startOfWeek := referenceDate.AddDate(0, 0, -weekday)
+    endOfWeek := startOfWeek.AddDate(0, 0, 7)
+
+    query := `
+        SELECT a.id, a.start_time, a.status, p.name as patient_name, u.name as doctor_name, p.id as patient_id
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        JOIN users u ON a.doctor_id = u.id
+        WHERE a.start_time >= $1 AND a.start_time < $2
+        ORDER BY a.start_time ASC
+    `
+    rows, err := h.DB.Query(query, startOfWeek, endOfWeek)
+    if err != nil {
+        log.Printf("Erro ao buscar agendamentos para a agenda (admin): %v", err)
+        c.HTML(http.StatusInternalServerError, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Não foi possível carregar a agenda."})
+        return
+    }
+    defer rows.Close()
+
+    type AppointmentDetails struct {
+        ID          int
+        StartTime   time.Time
+        PatientName string
+        DoctorName  string
+        Status      string
+        PatientID   int
+    }
+    appointmentsByDay := make(map[string][]AppointmentDetails)
+    for rows.Next() {
+        var app AppointmentDetails
+        if err := rows.Scan(&app.ID, &app.StartTime, &app.Status, &app.PatientName, &app.DoctorName, &app.PatientID); err != nil {
+            continue
+        }
+        dayKey := app.StartTime.Format("2006-01-02")
+        appointmentsByDay[dayKey] = append(appointmentsByDay[dayKey], app)
+    }
+
+    type DaySchedule struct {
+        Date         time.Time
+        Appointments []AppointmentDetails
+    }
+    var weekSchedule []DaySchedule
+    for i := 0; i < 7; i++ {
+        day := startOfWeek.AddDate(0, 0, i)
+        dayKey := day.Format("2006-01-02")
+        weekSchedule = append(weekSchedule, DaySchedule{
+            Date:         day,
+            Appointments: appointmentsByDay[dayKey],
+        })
+    }
+
+    c.HTML(http.StatusOK, "admin/agenda.html", gin.H{
+        "Title":        "Agenda da Clínica",
+        "WeekSchedule": weekSchedule,
+        "PrevWeekLink": "/admin/agenda?date=" + startOfWeek.AddDate(0, 0, -7).Format("2006-01-02"),
+        "NextWeekLink": "/admin/agenda?date=" + startOfWeek.AddDate(0, 0, 7).Format("2006-01-02"),
+        "TodayLink":    "/admin/agenda",
+        "ActiveNav":    "agenda",
+    })
+}
+
+// handlers/admin_handlers.go
+
+// (Cole estas 3 funções no final do arquivo)
+
+// GetEditAppointmentForm renderiza o formulário para editar uma consulta.
+func (h *AdminHandler) GetEditAppointmentForm(c *gin.Context) {
+	appointmentIDStr := c.Param("id")
+	appointmentID, _ := strconv.Atoi(appointmentIDStr)
+
+	var app storage.Appointment
+	var patientName string
+	query := `SELECT a.id, a.patient_id, a.doctor_id, a.start_time, p.name 
+			  FROM appointments a JOIN patients p ON a.patient_id = p.id 
+			  WHERE a.id = $1`
+	err := h.DB.QueryRow(query, appointmentID).Scan(&app.ID, &app.PatientID, &app.DoctorID, &app.StartTime, &patientName)
+	if err != nil {
+		log.Printf("Erro ao buscar consulta para edição (admin): %v", err)
+		c.HTML(http.StatusNotFound, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Consulta não encontrada."})
+		return
+	}
+
+	var doctors []storage.User
+	rows, _ := h.DB.Query("SELECT id, name FROM users WHERE user_type = 'terapeuta'")
+	if rows != nil {
+		defer rows.Close()
+		for rows.Next() {
+			var doc storage.User
+			if err := rows.Scan(&doc.ID, &doc.Name); err == nil {
+				doctors = append(doctors, doc)
+			}
+		}
+	}
+
+	// Reutiliza o template da secretaria que já está pronto
+	c.HTML(http.StatusOK, "secretaria/edit_appointment.html", gin.H{
+		"Title":       "Editar Agendamento",
+		"Appointment": app,
+		"PatientID":   app.PatientID,
+		"PatientName": patientName,
+		"Doctors":     doctors,
+		"ActiveNav":   "patients",
+		"AdminPath":   true, // Indica que a rota de volta deve ser a do admin
+	})
+}
+
+// PostEditAppointment processa a atualização de uma consulta.
+func (h *AdminHandler) PostEditAppointment(c *gin.Context) {
+	appointmentIDStr := c.Param("id")
+	patientIDStr := c.Query("patient_id") // Pega o ID do paciente da URL
+
+	doctorIDStr := c.PostForm("doctor_id")
+	dateStr := c.PostForm("appointment_date")
+	timeStr := c.PostForm("start_time")
+	doctorID, _ := strconv.Atoi(doctorIDStr)
+
+	startTime, err := time.Parse("2006-01-02 15:04", dateStr+" "+timeStr)
+	if err != nil {
+		log.Printf("Erro ao converter data/hora na edição (admin): %v", err)
+		c.Redirect(http.StatusFound, "/admin/patients/profile/"+patientIDStr)
+		return
+	}
+	endTime := startTime.Add(1 * time.Hour)
+
+	query := `UPDATE appointments SET doctor_id = $1, start_time = $2, end_time = $3, updated_at = $4 WHERE id = $5`
+	_, err = h.DB.Exec(query, doctorID, startTime, endTime, time.Now(), appointmentIDStr)
+	if err != nil {
+		log.Printf("Erro ao atualizar consulta (admin): %v", err)
+	}
+
+	c.Redirect(http.StatusFound, "/admin/patients/profile/"+patientIDStr)
+}
+
+// CancelAppointment atualiza o status de uma consulta para 'cancelado'.
+func (h *AdminHandler) CancelAppointment(c *gin.Context) {
+	appointmentID := c.Param("id")
+	patientID := c.Query("patient_id")
+
+	query := `UPDATE appointments SET status = 'cancelado', updated_at = $1 WHERE id = $2`
+	_, err := h.DB.Exec(query, time.Now(), appointmentID)
+	if err != nil {
+		log.Printf("ERRO DE BANCO DE DADOS ao cancelar consulta (admin): %v", err)
+	}
+
+	c.Redirect(http.StatusFound, "/admin/patients/profile/"+patientID)
 }

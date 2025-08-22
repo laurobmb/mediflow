@@ -1,42 +1,52 @@
 {{define "head"}}
-    <link rel="stylesheet" href="/static/css/admin.css">
-    <link rel="stylesheet" href="/static/css/secretaria.css">
+<link rel="stylesheet" href="/static/css/admin.css">
+<link rel="stylesheet" href="/static/css/secretaria.css">
+<link rel="stylesheet" href="/static/css/admin_layout.css"> 
 {{end}}
 
 {{define "content"}}
 <div class="secretaria-container">
-    {{template "_secretaria_header.html" .}}
-    <div class="form-container">
-    <h2>Editar Agendamento</h2>
-    <p>Paciente: <strong>{{.PatientName}}</strong></p>
 
-    <form action="/secretaria/appointments/edit/{{.Appointment.ID}}?patient_id={{.PatientID}}" method="post">
-        <fieldset>
-            <legend>Detalhes da Consulta</legend>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="doctor_id">Médico:</label>
-                    <select id="doctor_id" name="doctor_id" required>
-                        <option value="">Selecione</option>
-                        {{range .Doctors}}
-                        <option value="{{.ID}}" {{if eq .ID $.Appointment.DoctorID}}selected{{end}}>{{.Name}}</option>
-                        {{end}}
-                    </select>
+    {{if .AdminPath}}
+        {{template "_admin_header.html" .}}
+    {{else}}
+        {{template "_secretaria_header.html" .}}
+    {{end}}
+    <div class="form-container">
+        <h2>Editar Agendamento</h2>
+        <p>Paciente: <strong>{{.PatientName}}</strong></p>
+
+        <form action="{{if .AdminPath}}/admin{{else}}/secretaria{{end}}/appointments/edit/{{.Appointment.ID}}?patient_id={{.PatientID}}" method="post">
+            <fieldset>
+                <legend>Detalhes da Consulta</legend>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="doctor_id">Médico:</label>
+                        <select id="doctor_id" name="doctor_id" required>
+                            <option value="">Selecione</option>
+                            {{range .Doctors}}
+                            <option value="{{.ID}}" {{if eq .ID $.Appointment.DoctorID}}selected{{end}}>{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="appointment_date">Data:</label>
+                        <input type="date" id="appointment_date" name="appointment_date" value="{{.Appointment.StartTime.Format "2006-01-02"}}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="start_time">Horário:</label>
+                        <input type="time" id="start_time" name="start_time" value="{{.Appointment.StartTime.Format "15:04"}}" required>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="appointment_date">Data:</label>
-                    <!-- O valor da data precisa ser formatado como YYYY-MM-DD -->
-                    <input type="date" id="appointment_date" name="appointment_date" value="{{.Appointment.StartTime.Format "2006-01-02"}}" required>
-                </div>
-                <div class="form-group">
-                    <label for="start_time">Horário:</label>
-                     <!-- O valor da hora precisa ser formatado como HH:MM -->
-                    <input type="time" id="start_time" name="start_time" value="{{.Appointment.StartTime.Format "15:04"}}" required>
-                </div>
-            </div>
-        </fieldset>
-        <button type="submit" class="btn-submit">Salvar Alterações</button>
-    </form>
-    <a href="/secretaria/patients/profile/{{.PatientID}}" style="display: inline-block; margin-top: 20px;">Cancelar</a>
+            </fieldset>
+            <button type="submit" class="btn-submit">Salvar Alterações</button>
+        </form>
+
+        {{if .AdminPath}}
+            <a href="/admin/patients/profile/{{.PatientID}}" style="display: inline-block; margin-top: 20px;">Cancelar</a>
+        {{else}}
+            <a href="/secretaria/patients/profile/{{.PatientID}}" style="display: inline-block; margin-top: 20px;">Cancelar</a>
+        {{end}}
+        </div>
 </div>
 {{end}}

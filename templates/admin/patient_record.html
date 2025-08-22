@@ -1,0 +1,64 @@
+{{define "head"}}
+    <link rel="stylesheet" href="/static/css/admin_layout.css">
+    <style>
+        .record-history { margin-top: 30px; }
+        .record-card { background: #FCFBFD; border: 1px solid #E0D0F0; border-radius: 8px; padding: 20px; margin-bottom: 15px; }
+        .record-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+        .record-doctor { font-weight: bold; color: #5A3A81; }
+        .record-date { font-size: 0.9em; color: #777; }
+        .record-content p { margin: 0 0 10px; }
+        .record-content p strong { color: #333; }
+    </style>
+{{end}}
+
+{{define "content"}}
+<div class="admin-container">
+    {{template "_admin_header.html" .}}
+    <div class="form-container">
+        <h2>Prontuário de: {{.Patient.Name}}</h2>
+
+        <fieldset>
+            <legend>Adicionar Nova Entrada ao Prontuário</legend>
+            <form action="/admin/patients/record/new" method="post">
+                <input type="hidden" name="patient_id" value="{{.Patient.ID}}">
+                
+                <div class="form-group">
+                    <label>Nível de Ansiedade (0-10):</label>
+                    <input type="number" name="anxiety_level" min="0" max="10" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="main_complaint">Queixa Principal:</label>
+                    <textarea id="main_complaint" name="main_complaint" rows="3" class="form-control"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notas da Sessão:</label>
+                    <textarea id="notes" name="notes" rows="5" class="form-control"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-submit">Adicionar ao Prontuário</button>
+                </div>
+            </form>
+        </fieldset>
+
+        <div class="record-history">
+            <h3>Histórico de Registos</h3>
+            {{range .Records}}
+            <div class="record-card">
+                <div class="record-header">
+                    <span class="record-doctor">{{.DoctorName}}</span>
+                    <span class="record-date">{{.RecordDate.Format "02/01/2006 às 15:04"}}</span>
+                </div>
+                <div class="record-content">
+                    <p><strong>Queixa Principal:</strong> {{if .MainComplaint}}{{.MainComplaint}}{{else}}N/A{{end}}</p>
+                    <p><strong>Notas:</strong> {{if .Notes}}{{.Notes}}{{else}}N/A{{end}}</p>
+                </div>
+            </div>
+            {{else}}
+            <p>Nenhum registo encontrado para este paciente.</p>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

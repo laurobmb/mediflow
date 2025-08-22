@@ -107,6 +107,7 @@ func main() {
 	patientHandler := &handlers.PatientHandler{DB: db}
 	adminHandler := &handlers.AdminHandler{DB: db}
 	secretariaHandler := &handlers.SecretariaHandler{DB: db}
+    portalHandler := &handlers.PortalHandler{DB: db} // Adicionar novo handler
 
 	router := gin.Default()
 	router.HTMLRender = newMultiTemplateRenderer("templates")
@@ -121,11 +122,30 @@ func main() {
 	router.POST("/login", authHandler.PostLogin)
 	router.GET("/logout", authHandler.Logout)
 
+	portal := router.Group("/portal")
+    {
+        portal.GET("/login", portalHandler.ShowTokenLoginPage)
+        portal.GET("/login/:token", portalHandler.ShowTokenLoginPage)
+        portal.POST("/login", portalHandler.ProcessTokenLogin)
+        portal.GET("/success", portalHandler.ShowSuccessPage)
+    }
+
+	
+	// --- Rotas Protegidas do Portal do Paciente ---
+	portalProtected := router.Group("/portal", handlers.AuthPatientRequired())
+	{
+		portalProtected.GET("/consent", portalHandler.ShowConsentForm)
+		portalProtected.POST("/consent", portalHandler.ProcessConsentForm)
+	}
+
 	// Grupos de Rotas Protegidas
 	secretariaGroup := router.Group("/secretaria", AuthRequired())
 	{
 		secretariaGroup.GET("/dashboard", secretariaHandler.ViewAgenda)
+
 		secretariaGroup.GET("/pacientes/novo", patientHandler.GetNewPatientForm)
+		secretariaGroup.POST("/pacientes/novo", patientHandler.CreatePatient)
+
 		secretariaGroup.GET("/patients", secretariaHandler.ViewPatients)
 		secretariaGroup.GET("/patients/profile/:id", secretariaHandler.GetPatientProfile)
 		secretariaGroup.POST("/appointments/new", secretariaHandler.PostNewAppointment)
@@ -133,6 +153,7 @@ func main() {
 		secretariaGroup.GET("/patients/search", secretariaHandler.SearchPatientsAPI)
 		secretariaGroup.GET("/appointments/edit/:id", secretariaHandler.GetEditAppointmentForm)
 		secretariaGroup.POST("/appointments/edit/:id", secretariaHandler.PostEditAppointment)
+        secretariaGroup.GET("/pacientes/token/:id", secretariaHandler.ShowPatientToken) // Adicionar esta rota		
 	}
 
 	terapeutaGroup := router.Group("/terapeuta", AuthRequired())
@@ -143,6 +164,7 @@ func main() {
 	adminGroup := router.Group("/admin", AuthRequired())
 	{
 		adminGroup.GET("/dashboard", handlers.AdminDashboard)
+		adminGroup.GET("/agenda", adminHandler.ViewAgenda) // NOVA ROTA
 		adminGroup.GET("/users", adminHandler.ViewUsers)
 		adminGroup.GET("/users/new", adminHandler.GetNewUserForm)
 		adminGroup.POST("/users/new", adminHandler.PostNewUser)
@@ -159,6 +181,10 @@ func main() {
 		adminGroup.GET("/patients/profile/:id", adminHandler.GetPatientProfile)
 		adminGroup.POST("/appointments/new", adminHandler.PostNewAppointment)
 		adminGroup.GET("/monitoring", adminHandler.SystemMonitoring)
+
+		adminGroup.GET("/appointments/edit/:id", adminHandler.GetEditAppointmentForm)
+		adminGroup.POST("/appointments/edit/:id", adminHandler.PostEditAppointment)
+		adminGroup.GET("/appointments/cancel/:id", adminHandler.CancelAppointment)
 	}
 
 	api := router.Group("/api/v1", AuthRequired())

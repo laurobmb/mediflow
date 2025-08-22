@@ -1,112 +1,114 @@
 {{define "head"}}
     <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/admin_layout.css">
 {{end}}
 
 {{define "content"}}
-<div class="form-container">
-    <h2>Perfil do Paciente: {{.Patient.Name}}</h2>
+<div class="admin-container">
+    {{template "_admin_header.html" .}}
 
-    <!-- Botão para editar os dados cadastrais do paciente -->
-    <a href="/admin/patients/edit/{{.Patient.ID}}" class="btn-add-user" style="margin-bottom: 30px;">Editar Dados Cadastrais</a>
+    <div class="form-container">
+        <h2>Perfil do Paciente: {{.Patient.Name}}</h2>
 
-    <!-- Seção para Agendar Nova Consulta -->
-    <fieldset>
-        <legend>Agendar Nova Consulta</legend>
-        <form action="/admin/appointments/new" method="post">
-            <!-- Campo oculto para enviar o ID do paciente -->
-            <input type="hidden" name="patient_id" value="{{.Patient.ID}}">
+        <a href="/admin/patients/edit/{{.Patient.ID}}" class="btn-add-user" style="margin-bottom: 30px;">Editar Dados / Ver Prontuário</a>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="doctor_id">Médico Responsável:</label>
-                    <select id="doctor_id" name="doctor_id" required>
-                        <option value="">Selecione um médico</option>
-                        {{range .Doctors}}
-                        <option value="{{.ID}}">{{.Name}}</option>
-                        {{end}}
-                    </select>
+        <fieldset>
+            <legend>Agendar Nova Consulta</legend>
+            <form action="/admin/appointments/new" method="post">
+                <input type="hidden" name="patient_id" value="{{.Patient.ID}}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="doctor_id">Médico Responsável:</label>
+                        <select id="doctor_id" name="doctor_id" required>
+                            <option value="">Selecione um médico</option>
+                            {{range .Doctors}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="appointment_date">Data da Consulta:</label>
+                        <input type="date" id="appointment_date" name="appointment_date" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="start_time">Horário de Início:</label>
+                        <input type="time" id="start_time" name="start_time" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="status">Status:</label>
+                        <select id="status" name="status" required>
+                            <option value="agendado" selected>Agendado</option>
+                            <option value="concluido">Concluído</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label for="appointment_date">Data da Consulta:</label>
-                    <input type="date" id="appointment_date" name="appointment_date" required>
+                    <label for="notes">Notas da Consulta (opcional):</label>
+                    <textarea id="notes" name="notes" rows="3"></textarea>
                 </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="start_time">Horário de Início:</label>
-                    <input type="time" id="start_time" name="start_time" required>
-                </div>
-                 <div class="form-group">
-                    <label for="status">Status:</label>
-                    <select id="status" name="status" required>
-                        <option value="agendado" selected>Agendado</option>
-                        <option value="concluido">Concluído</option>
-                        <option value="cancelado">Cancelado</option>
-                    </select>
-                </div>
-            </div>
-             <div class="form-group">
-                <label for="notes">Notas da Consulta (opcional):</label>
-                <textarea id="notes" name="notes" rows="3"></textarea>
-            </div>
-            <button type="submit" class="btn-submit">Agendar Consulta</button>
-        </form>
-    </fieldset>
+                <button type="submit" class="btn-submit">Agendar Consulta</button>
+            </form>
+        </fieldset>
 
-    <!-- Consultas Futuras -->
-    <fieldset>
-        <legend>Consultas Agendadas</legend>
-        <table class="user-table">
-            <thead>
-                <tr>
-                    <th>Data e Hora</th>
-                    <th>Médico</th>
-                    <th>Status</th>
-                    <th>Notas</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .FutureAppointments}}
-                <tr>
-                    <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
-                    <td>{{.DoctorName}}</td>
-                    <td>{{.Status}}</td>
-                    <td>{{.Notes}}</td>
-                </tr>
-                {{else}}
-                <tr><td colspan="4" style="text-align: center;">Nenhuma consulta futura agendada.</td></tr>
-                {{end}}
-            </tbody>
-        </table>
-    </fieldset>
+        <fieldset>
+            <legend>Consultas Agendadas</legend>
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Médico</th>
+                        <th>Status</th>
+                        <th>Notas</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .FutureAppointments}}
+                    <tr>
+                        <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
+                        <td>{{.DoctorName}}</td>
+                        <td>{{.Status}}</td>
+                        <td>{{.Notes}}</td>
+                        <td class="action-links">
+                            <a href="/admin/appointments/edit/{{.ID}}?patient_id={{$.Patient.ID}}" class="edit-link">Editar</a>
+                            <a href="/admin/appointments/cancel/{{.ID}}?patient_id={{$.Patient.ID}}" class="delete-link" onclick="return confirm('Tem certeza que deseja desmarcar esta consulta?');">Desmarcar</a>
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr><td colspan="5" style="text-align: center;">Nenhuma consulta futura agendada.</td></tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </fieldset>
 
-    <!-- Histórico de Consultas -->
-    <fieldset>
-        <legend>Histórico de Consultas</legend>
-        <table class="user-table">
-             <thead>
-                <tr>
-                    <th>Data e Hora</th>
-                    <th>Médico</th>
-                    <th>Status</th>
-                    <th>Notas</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .PastAppointments}}
-                <tr>
-                    <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
-                    <td>{{.DoctorName}}</td>
-                    <td>{{.Status}}</td>
-                    <td>{{.Notes}}</td>
-                </tr>
-                {{else}}
-                <tr><td colspan="4" style="text-align: center;">Nenhum histórico de consultas encontrado.</td></tr>
-                {{end}}
-            </tbody>
-        </table>
-    </fieldset>
-
-    <a href="/admin/patients" style="display: inline-block; margin-top: 20px;">Voltar para a Lista de Pacientes</a>
+        <fieldset>
+            <legend>Histórico de Consultas</legend>
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Médico</th>
+                        <th>Status</th>
+                        <th>Notas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .PastAppointments}}
+                    <tr>
+                        <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
+                        <td>{{.DoctorName}}</td>
+                        <td>{{.Status}}</td>
+                        <td>{{.Notes}}</td>
+                    </tr>
+                    {{else}}
+                    <tr><td colspan="4" style="text-align: center;">Nenhum histórico de consultas encontrado.</td></tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </fieldset>
+    </div>
 </div>
 {{end}}

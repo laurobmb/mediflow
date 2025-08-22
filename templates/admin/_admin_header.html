@@ -3,6 +3,7 @@
     <div class="logo-area">Administrador</div>
     <div class="main-actions">
         <a href="/admin/dashboard" {{if eq .ActiveNav "dashboard"}}class="active"{{end}}>Dashboard</a>
+        <a href="/admin/agenda" {{if eq .ActiveNav "agenda"}}class="active"{{end}}>Agenda</a>
         <a href="/admin/users" {{if eq .ActiveNav "users"}}class="active"{{end}}>Gerenciar Usuários</a>
         <a href="/admin/patients" {{if eq .ActiveNav "patients"}}class="active"{{end}}>Gerenciar Pacientes</a>
         <a href="/admin/monitoring" {{if eq .ActiveNav "monitoring"}}class="active"{{end}}>Monitoramento</a>

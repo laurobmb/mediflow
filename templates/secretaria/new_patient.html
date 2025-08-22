@@ -5,129 +5,42 @@
 
 {{define "content"}}
 <div class="secretaria-container">
-    <div class="secretaria-header">
-        <div class="logo-area">Secretária</div>
-        <div class="main-actions">
-            <a href="/secretaria/dashboard">Agenda</a>
-            <a href="/secretaria/patients">Consultar Pacientes</a>
-            <a href="/secretaria/pacientes/novo" class="active">Cadastrar Paciente</a>
-            <a href="/logout">Sair</a>
-        </div>
-    </div>
+    {{template "_secretaria_header.html" .}}
 
     <div class="form-container">
         <h2>Cadastrar Novo Paciente</h2>
-        <p>Preencha os dados de identificação do novo paciente.</p>
+        <p>Preencha os dados de identificação do novo paciente para gerar o link de consentimento.</p>
 
-        <form action="/api/v1/patient" method="post">
-            
+        <form action="{{.Action}}" method="post">
             <fieldset>
-                <legend>Identificação do Cliente</legend>
+                <legend>Dados para Contato Inicial</legend>
                 <div class="form-group">
-                    <label for="client_name">Nome:</label>
+                    <label for="client_name">Nome Completo:</label>
                     <input type="text" id="client_name" name="client_name" required>
                 </div>
+
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="address_street">Endereço:</label>
-                        <input type="text" id="address_street" name="address_street" placeholder="Rua, Av. etc.">
-                    </div>
-                    <div class="form-group">
-                        <label for="address_number">Nº:</label>
-                        <input type="text" id="address_number" name="address_number">
+                        <label for="email">E-mail:</label>
+                        <input type="email" id="email" name="email" placeholder="email@example.com">
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="address_neighborhood">Bairro:</label>
-                        <input type="text" id="address_neighborhood" name="address_neighborhood">
-                    </div>
-                    <div class="form-group">
-                        <label for="address_city">Cidade:</label>
-                        <input type="text" id="address_city" name="address_city">
-                    </div>
-                    <div class="form-group">
-                        <label for="address_state">Estado:</label>
-                        <input type="text" id="address_state" name="address_state">
-                    </div>
-                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="phone">Telefone:</label>
                         <input type="tel" id="phone" name="phone" placeholder="(XX) XXXX-XXXX">
                     </div>
                     <div class="form-group">
-                        <label for="mobile">Celular:</label>
-                        <input type="tel" id="mobile" name="mobile" placeholder="(XX) XXXXX-XXXX">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="dob">Data de Nascimento:</label>
-                        <input type="date" id="dob" name="dob">
-                    </div>
-                    <div class="form-group">
-                        <label for="age">Idade:</label>
-                        <input type="number" id="age" name="age" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Sexo:</label>
-                        <div class="radio-group">
-                            <label><input type="radio" name="gender" value="M"> M</label>
-                            <label><input type="radio" name="gender" value="F"> F</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="marital_status">Estado Civil:</label>
-                        <input type="text" id="marital_status" name="marital_status">
-                    </div>
-                    <div class="form-group">
-                        <label>Filho(s):</label>
-                        <div class="radio-group">
-                            <label><input type="radio" name="children" value="Sim" onchange="toggleChildrenQty(true)"> Sim</label>
-                            <label><input type="radio" name="children" value="Não" onchange="toggleChildrenQty(false)"> Não</label>
-                        </div>
-                    </div>
-                    <div class="form-group" id="children_qty_group" style="display: none;">
-                        <label for="num_children">Quantos?</label>
-                        <input type="number" id="num_children" name="num_children" min="0">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="profession">Profissão:</label>
-                        <input type="text" id="profession" name="profession">
-                    </div>
-                    <div class="form-group">
-                        <label for="email">E-mail:</label>
-                        <input type="email" id="email" name="email">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Contato de Emergência</label>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="emergency_contact_name">Nome:</label>
-                            <input type="text" id="emergency_contact_name" name="emergency_contact_name">
-                        </div>
-                        <div class="form-group">
-                            <label for="emergency_contact_phone">Telefone:</label>
-                            <input type="tel" id="emergency_contact_phone" name="emergency_contact_phone" placeholder="(XX) XXXXX-XXXX">
-                        </div>
-                        <div class="form-group">
-                            <label for="emergency_contact_other">Outro (relação):</label>
-                            <input type="text" id="emergency_contact_other" name="emergency_contact_other">
-                        </div>
+                        <label for="mobile">Celular (WhatsApp):</label>
+                        <input type="tel" id="mobile" name="mobile" placeholder="(XX) XXXXX-XXXX" required>
                     </div>
                 </div>
             </fieldset>
-
-            <!-- NOVO: Contentor padronizado para os botões -->
+            
             <div class="form-actions">
                 <a href="/secretaria/dashboard" class="btn-cancel">Cancelar</a>
-                <button type="submit" class="btn-submit">Salvar Paciente</button>
+                <button type="submit" class="btn-submit">Salvar e Gerar Link</button>
             </div>
         </form>
     </div>

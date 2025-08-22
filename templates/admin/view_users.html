@@ -10,6 +10,17 @@
     <div class="form-container">
         <h2>Gerenciar Usuários</h2>
 
+        {{if .ErrorFlashes}}
+            {{range .ErrorFlashes}}
+            <div class="flash-message error">{{.}}</div>
+            {{end}}
+        {{end}}
+        
+        {{if .SuccessFlashes}}
+            {{range .SuccessFlashes}}
+            <div class="flash-message success">{{.}}</div>
+            {{end}}
+        {{end}}
         <a href="/admin/users/new" class="btn-add-user">Adicionar Novo Usuário</a>
 
         {{if .Error}}
