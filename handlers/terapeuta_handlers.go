@@ -181,7 +181,16 @@ func (h *TerapeutaHandler) ProcessPatientRecord(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Erro ao INSERIR registro de prontuário pelo terapeuta: %v", err)
-	}
+	} else {
+		logInfo := LogAction{
+			DB:         h.DB,
+			Context:    c,
+			Action:     "Adicionou nova entrada ao prontuário",
+			TargetType: "Paciente",
+			TargetID:   patientID,
+		}
+		AddAuditLog(logInfo)
+		}
 
 	c.Redirect(http.StatusFound, "/terapeuta/pacientes/prontuario/"+patientIDStr)
 }

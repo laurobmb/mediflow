@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 	"encoding/hex" // <-- ADICIONE ESTA LINHA
+	"strings"
 	
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -71,12 +72,24 @@ CREATE TABLE IF NOT EXISTS appointments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- NOVA TABELA PARA LOGS DE AUDITORIA
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id SERIAL PRIMARY KEY,
+  user_id INT,
+  user_name VARCHAR(255),
+  action TEXT NOT NULL,
+  target_type VARCHAR(255),
+  target_id INT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 `
 
 func main() {
 	initDB := flag.Bool("init", false, "Inicializa o banco de dados e cria tabelas.")
 	createUsers := flag.Bool("create-users", false, "Cria usuários de exemplo.")
 	populateDB := flag.Bool("populate", false, "Popula o banco com dados de teste.")
+	viewLogs := flag.Bool("audit", false, "Exibe os logs de auditoria do sistema.") // <-- NOVA FLAG
 	flag.Parse()
 
 	if err := godotenv.Load(); err != nil {
@@ -109,6 +122,16 @@ func main() {
 		}
 		fmt.Println("Dados de teste inseridos com sucesso!")
 	}
+
+	// --- NOVA LÓGICA PARA EXIBIR LOGS ---
+	if *viewLogs {
+		fmt.Println("Exibindo logs de auditoria...")
+		if err := displayAuditLogs(db); err != nil {
+			log.Fatalf("Erro ao exibir logs de auditoria: %v", err)
+		}
+	}
+	// ------------------------------------
+
 	if !*initDB && !*createUsers && !*populateDB {
 		fmt.Println("Use uma flag para executar uma ação: -init, -create-users, ou -populate.")
 	}
@@ -230,3 +253,61 @@ func populateData(db *sql.DB, patientCount int) error {
 func newDBConnection() (*sql.DB, error) { dbType := os.Getenv("DB_TYPE"); dbHost := os.Getenv("DB_HOST"); dbPort := os.Getenv("DB_PORT"); dbUser := os.Getenv("DB_USER"); dbPass := os.Getenv("DB_PASS"); dbName := os.Getenv("DB_NAME"); connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPass, dbName); db, err := sql.Open(dbType, connStr); if err != nil { return nil, err }; if err = db.Ping(); err != nil { return nil, err }; return db, nil }
 func initializeDB(db *sql.DB) error { _, err := db.Exec(createTableSQL); return err }
 func createDefaultUsers(db *sql.DB) error { users := []struct { name string; email string; password string; userType string }{ {"Admin User", "admin@mediflow.com", "senha123", "admin"}, {"Dr. Exemplo", "terapeuta@mediflow.com", "senha123", "terapeuta"}, {"Secretaria Exemplo", "secretaria@mediflow.com", "senha123", "secretaria"}, }; for _, u := range users { hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost); if err != nil { return fmt.Errorf("falha ao gerar hash para %s: %w", u.email, err) }; query := ` INSERT INTO users (name, email, password_hash, user_type) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING; `; _, err = db.Exec(query, u.name, u.email, string(hashedPassword), u.userType); if err != nil { return fmt.Errorf("falha ao inserir usuário %s: %w", u.email, err) } }; return nil }
+
+// NOVA FUNÇÃO PARA EXIBIR OS LOGS DE AUDITORIA
+func displayAuditLogs(db *sql.DB) error {
+	query := `SELECT id, user_id, user_name, action, target_type, target_id, created_at 
+			  FROM audit_logs ORDER BY created_at DESC`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	fmt.Println(strings.Repeat("-", 120))
+	fmt.Printf("%-5s | %-25s | %-50s | %-10s | %-10s | %-30s\n", "ID", "Usuário", "Ação", "Alvo", "ID Alvo", "Data")
+	fmt.Println(strings.Repeat("-", 120))
+
+	for rows.Next() {
+		var id int
+		var createdAt time.Time
+		// Usamos tipos Null* para colunas que podem ser nulas
+		var userID sql.NullInt64
+		var userName, targetType sql.NullString
+		var targetID sql.NullInt64
+		var action string
+
+		if err := rows.Scan(&id, &userID, &userName, &action, &targetType, &targetID, &createdAt); err != nil {
+			log.Printf("Erro ao escanear log: %v", err)
+			continue
+		}
+
+		// Prepara as strings para exibição, tratando valores nulos
+		userNameStr := "N/A"
+		if userName.Valid {
+			userNameStr = fmt.Sprintf("%d - %s", userID.Int64, userName.String)
+		}
+
+		targetTypeStr := "N/A"
+		if targetType.Valid {
+			targetTypeStr = targetType.String
+		}
+
+		targetIDStr := "N/A"
+		if targetID.Valid {
+			targetIDStr = fmt.Sprintf("%d", targetID.Int64)
+		}
+
+		fmt.Printf("%-5d | %-25s | %-50s | %-10s | %-10s | %-30s\n",
+			id,
+			userNameStr,
+			action,
+			targetTypeStr,
+			targetIDStr,
+			createdAt.Format("02/01/2006 15:04:05"),
+		)
+	}
+	fmt.Println(strings.Repeat("-", 120))
+	return nil
+}

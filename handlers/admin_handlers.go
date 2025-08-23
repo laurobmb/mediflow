@@ -187,6 +187,14 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 		log.Printf("Erro ao remover usuário: %v", err)
 		session.AddFlash("Ocorreu um erro ao tentar remover o usuário.", "error")
 	} else {
+		logInfo := LogAction{
+			DB:         h.DB,
+			Context:    c,
+			Action:     fmt.Sprintf("Excluiu o usuário com ID: %s", id),
+			TargetType: "Usuário",
+			TargetID:   safeAtoi(id),
+		}
+		AddAuditLog(logInfo)
 		session.AddFlash("Usuário removido com sucesso!", "success")
 	}
 	session.Save()
@@ -536,7 +544,17 @@ func (h *AdminHandler) PostEditPatient(c *gin.Context) {
 		c.PostForm("current_treatment"), c.PostForm("notes"), time.Now())
 
 	if err != nil {
-		log.Printf("Erro ao inserir novo registro de prontuário: %v", err)
+		log.Printf("Erro ao inserir novo registro de prontuário (admin): %v", err)
+	} else {
+		// ADICIONE A CHAMADA DE LOG AQUI
+		logInfo := LogAction{
+			DB:         h.DB,
+			Context:    c,
+			Action:     "Adicionou nova entrada ao prontuário",
+			TargetType: "Paciente",
+			TargetID:   patientID,
+		}
+		AddAuditLog(logInfo)
 	}
 
 	c.Redirect(http.StatusFound, "/admin/patients/edit/"+idStr)
@@ -801,7 +819,7 @@ func (h *AdminHandler) SystemMonitoring(c *gin.Context) {
         data.PendingPaymentsValue = pendingValue.Float64
     }
     // --- FIM DA NOVA LÓGICA ---
-		
+
 	// --- LÓGICA ATUALIZADA PARA BUSCAR PACIENTES PENDENTES ---
 	var pendingPatients []PendingConsentPatient
 	// Query agora busca também o access_token

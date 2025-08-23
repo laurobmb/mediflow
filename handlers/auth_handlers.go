@@ -90,6 +90,9 @@ func (h *AuthHandler) PostLogin(c *gin.Context) {
 		return
 	}
 
+	logInfo := LogAction{DB: h.DB, Context: c, Action: "Login bem-sucedido"}
+	AddAuditLog(logInfo)
+	
 	switch user.UserType {
 	case "terapeuta":
 		c.Redirect(http.StatusFound, "/terapeuta/dashboard")
