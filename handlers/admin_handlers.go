@@ -47,7 +47,7 @@ func (h *AdminHandler) ViewUsers(c *gin.Context) {
 	// Salva a sessão para limpar as mensagens após a leitura
 	session.Save()
 
-	rows, err := h.DB.Query("SELECT id, name, email, user_type FROM users ORDER BY name ASC")
+	rows, err := h.DB.Query("SELECT id, name, email, user_type FROM users WHERE deleted_at IS NULL ORDER BY name ASC")
 	if err != nil {
 		log.Printf("Erro ao buscar usuários: %v", err)
 		c.HTML(http.StatusInternalServerError, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Não foi possível carregar a lista de usuários."})
@@ -181,8 +181,9 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 		return // Interrompe a função aqui
 	}
 
-	// Se passou por ambas as verificações, pode excluir.
-	_, err = h.DB.Exec("DELETE FROM users WHERE id = $1", id)
+	// CORREÇÃO: Em vez de DELETE, fazemos um UPDATE para marcar como inativo
+	_, err = h.DB.Exec("UPDATE users SET deleted_at = NOW() WHERE id = $1", id)
+
 	if err != nil {
 		log.Printf("Erro ao remover usuário: %v", err)
 		session.AddFlash("Ocorreu um erro ao tentar remover o usuário.", "error")
@@ -1100,8 +1101,55 @@ func (h *AdminHandler) MarkAppointmentAsPaid(c *gin.Context) {
     _, err := h.DB.Exec(query, time.Now(), appointmentID)
     if err != nil {
         log.Printf("ERRO ao marcar consulta como paga (admin): %v", err)
-    }
+    } else {
+		// ======================================================
+		// ADICIONANDO O REGISTRO DE AUDITORIA
+		// ======================================================
+		logInfo := LogAction{
+			DB:         h.DB,
+			Context:    c,
+			Action:     fmt.Sprintf("Marcou a consulta #%s como PAGA para o paciente #%s", appointmentID, patientID),
+			TargetType: "Agendamento",
+			TargetID:   safeAtoi(appointmentID),
+		}
+		AddAuditLog(logInfo)
+		// ======================================================
+	}
 
     // Redireciona de volta para a página de perfil do paciente do admin
     c.Redirect(http.StatusFound, "/admin/patients/profile/"+patientID)
+}
+
+// handlers/admin_handlers.go
+
+// ViewAuditLogs exibe a página de logs de auditoria.
+func (h *AdminHandler) ViewAuditLogs(c *gin.Context) {
+	query := `SELECT id, user_id, user_name, action, target_type, target_id, created_at 
+			  FROM audit_logs ORDER BY created_at DESC LIMIT 100` // Limita aos últimos 100 logs por performance
+
+	rows, err := h.DB.Query(query)
+	if err != nil {
+		c.HTML(http.StatusInternalServerError, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Não foi possível carregar os logs de auditoria."})
+		return
+	}
+	defer rows.Close()
+
+	var logs []storage.AuditLog
+	for rows.Next() {
+		var logEntry storage.AuditLog
+		if err := rows.Scan(
+			&logEntry.ID, &logEntry.UserID, &logEntry.UserName, &logEntry.Action,
+			&logEntry.TargetType, &logEntry.TargetID, &logEntry.CreatedAt,
+		); err != nil {
+			log.Printf("Erro ao escanear log de auditoria: %v", err)
+			continue
+		}
+		logs = append(logs, logEntry)
+	}
+
+	c.HTML(http.StatusOK, "admin/audit_logs.html", gin.H{
+		"Title":     "Logs de Auditoria",
+		"Logs":      logs,
+		"ActiveNav": "logs", // Para destacar o item no menu
+	})
 }

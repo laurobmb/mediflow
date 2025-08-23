@@ -112,3 +112,15 @@ type Appointment struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+// storage/models.go
+
+// AuditLog representa a tabela 'audit_logs' no banco de dados.
+type AuditLog struct {
+	ID         int
+	UserID     sql.NullInt64
+	UserName   sql.NullString
+	Action     string
+	TargetType sql.NullString
+	TargetID   sql.NullInt64
+	CreatedAt  time.Time
+}

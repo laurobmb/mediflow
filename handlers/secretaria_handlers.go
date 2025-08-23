@@ -168,7 +168,11 @@ func (h *SecretariaHandler) GetPatientProfile(c *gin.Context) {
 	}
 
 	var patient storage.Patient
-	err = h.DB.QueryRow("SELECT id, name FROM patients WHERE id = $1", patientID).Scan(&patient.ID, &patient.Name)
+	query := "SELECT id, name, consent_given_at, access_token FROM patients WHERE id = $1"
+	
+	// CORREÇÃO: Adicionado o 'patientID' que estava faltando para o parâmetro $1
+	err = h.DB.QueryRow(query, patientID).Scan(&patient.ID, &patient.Name, &patient.ConsentGivenAt, &patient.AccessToken)
+	
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.HTML(http.StatusNotFound, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Paciente não encontrado."})
@@ -444,7 +448,20 @@ func (h *SecretariaHandler) MarkAppointmentAsPaid(c *gin.Context) {
     _, err := h.DB.Exec(query, time.Now(), appointmentID)
     if err != nil {
         log.Printf("ERRO ao marcar consulta como paga (secretária): %v", err)
-    }
+    } else {
+		// ======================================================
+		// ADICIONANDO O REGISTRO DE AUDITORIA
+		// ======================================================
+		logInfo := LogAction{
+			DB:         h.DB,
+			Context:    c,
+			Action:     fmt.Sprintf("Marcou a consulta #%s como PAGA para o paciente #%s", appointmentID, patientID),
+			TargetType: "Agendamento",
+			TargetID:   safeAtoi(appointmentID),
+		}
+		AddAuditLog(logInfo)
+		// ======================================================
+	}
 
     // Redireciona de volta para a página de perfil do paciente
     c.Redirect(http.StatusFound, "/secretaria/patients/profile/"+patientID)

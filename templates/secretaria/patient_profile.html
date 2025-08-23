@@ -1,122 +1,141 @@
 {{define "head"}}
     <link rel="stylesheet" href="/static/css/admin.css">
     <link rel="stylesheet" href="/static/css/secretaria.css">
+    <style>
+        .patient-actions-bar {
+            background-color: #FCFBFD;
+            border: 1px solid #F8F0FA;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .patient-actions-bar p {
+            margin: 0;
+            color: #555;
+            font-weight: bold;
+        }
+    </style>
 {{end}}
 
 {{define "content"}}
 <div class="secretaria-container">
-    <div class="secretaria-header">
-        <div class="logo-area">Secretária</div>
-        <div class="main-actions">
-            <a href="/secretaria/dashboard">Agenda</a>
-            <a href="/secretaria/patients" class="active">Consultar Pacientes</a>
-            <a href="/secretaria/pacientes/novo">Cadastrar Paciente</a>
-            <a href="/logout">Sair</a>
-        </div>
-    </div>
-    <h2>Agenda de: {{.Patient.Name}}</h2>
+    {{template "_secretaria_header.html" .}}
+    
+    <div class="form-container">
+        <h2>Agenda de: {{.Patient.Name}}</h2>
 
-    <fieldset>
-        <legend>Marcar Nova Consulta</legend>
-        <form action="/secretaria/appointments/new" method="post">
-            <input type="hidden" name="patient_id" value="{{.Patient.ID}}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="doctor_id">Médico:</label>
-                    <select id="doctor_id" name="doctor_id" required>
-                        <option value="">Selecione</option>
-                        {{range .Doctors}}
-                        <option value="{{.ID}}">{{.Name}}</option>
-                        {{end}}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="appointment_date">Data:</label>
-                    <input type="date" id="appointment_date" name="appointment_date" required>
-                </div>
-                <div class="form-group">
-                    <label for="start_time">Horário:</label>
-                    <input type="time" id="start_time" name="start_time" required>
-                </div>
+        {{if .Patient.ConsentGivenAt.Valid}}
+            <div class="flash-message success" style="margin-bottom: 20px;">
+                ✅ Consentimento fornecido pelo paciente.
             </div>
-            <button type="submit" class="btn-submit">Marcar Consulta</button>
-        </form>
-    </fieldset>
-
-    <fieldset>
-        <legend>Consultas Futuras</legend>
-        <table class="user-table">
-            <thead>
-                <tr>
-                    <th>Data e Hora</th>
-                    <th>Médico</th>
-                    <th>Valor (R$)</th>
-                    <th>Pagamento</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .FutureAppointments}}
-                <tr>
-                    <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
-                    <td>{{.DoctorName}}</td>
-                    <td>{{printf "%.2f" .Price}}</td>
-                    <td>
-                        {{if eq .PaymentStatus "pago"}}
-                            <span style="color: green;">✅ {{.PaymentStatus}}</span>
-                        {{else}}
-                            <span style="color: orange;">❌ {{.PaymentStatus}}</span>
-                        {{end}}
-                    </td>
-                    <td class="action-links">
-                        {{if eq .PaymentStatus "pendente"}}
-                            <a href="/secretaria/appointments/mark-as-paid/{{.ID}}?patient_id={{$.Patient.ID}}" class="view-link-btn" style="background-color: #d1e7dd; border-color: #badbcc; color: #0f5132;">Marcar como Pago</a>
-                        {{end}}
-                        <a href="/secretaria/appointments/edit/{{.ID}}" class="edit-link">Editar</a>
-                        <a href="/secretaria/appointments/cancel/{{.ID}}?patient_id={{$.Patient.ID}}" class="delete-link" onclick="return confirm('Tem certeza?');">Desmarcar</a>
-                    </td>
-                </tr>
+        {{else}}
+            <div class="flash-message error" style="margin-bottom: 20px;">
+                ❌ Paciente ainda não preencheu o termo de consentimento.
+            </div>
+        {{end}}
+        
+        <div class="patient-actions-bar">
+            <p>Ações do Paciente:</p>
+            <div>
+                {{if not .Patient.ConsentGivenAt.Valid}}
+                    {{if .Patient.AccessToken.Valid}}
+                        <button onclick="showConsentLink('{{.Patient.AccessToken.String}}')" class="view-link-btn">
+                            Ver Link de Consentimento
+                        </button>
+                    {{end}}
                 {{else}}
-                <tr><td colspan="5" style="text-align: center;">Nenhuma consulta futura agendada.</td></tr>
+                    <span style="font-size: 0.9em; color: #777;">Nenhuma ação pendente.</span>
                 {{end}}
-            </tbody>
-        </table>
-    </fieldset>
+            </div>
+        </div>
 
-    <fieldset>
-        <legend>Histórico de Consultas</legend>
-        <table class="user-table">
-            <thead>
-                <tr>
-                    <th>Data e Hora</th>
-                    <th>Médico</th>
-                    <th>Valor (R$)</th>
-                    <th>Pagamento</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .PastAppointments}}
-                <tr>
-                    <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
-                    <td>{{.DoctorName}}</td>
-                    <td>{{printf "%.2f" .Price}}</td>
-                    <td>
-                        {{if eq .PaymentStatus "pago"}}
-                            <span style="color: green;">✅ {{.PaymentStatus}}</span>
-                        {{else}}
-                            <span style="color: orange;">❌ {{.PaymentStatus}}</span>
-                        {{end}}
-                    </td>
-                    <td>{{.Status}}</td>
-                </tr>
-                {{else}}
-                <tr><td colspan="5" style="text-align: center;">Nenhum histórico de consultas.</td></tr>
-                {{end}}
-            </tbody>
-        </table>
-    </fieldset>
+        <fieldset>
+            <legend>Marcar Nova Consulta</legend>
+            <form action="/secretaria/appointments/new" method="post">
+                <input type="hidden" name="patient_id" value="{{.Patient.ID}}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="doctor_id">Médico:</label>
+                        <select id="doctor_id" name="doctor_id" required>
+                            <option value="">Selecione</option>
+                            {{range .Doctors}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="appointment_date">Data:</label>
+                        <input type="date" id="appointment_date" name="appointment_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="start_time">Horário:</label>
+                        <input type="time" id="start_time" name="start_time" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit">Marcar Consulta</button>
+            </form>
+        </fieldset>
 
-    <a href="/secretaria/patients" style="display: inline-block; margin-top: 20px;">Voltar para a Lista de Pacientes</a>
+        <fieldset>
+            <legend>Consultas Futuras</legend>
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Médico</th>
+                        <th>Valor (R$)</th>
+                        <th>Pagamento</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .FutureAppointments}}
+                    <tr>
+                        <td>{{.StartTime.Format "02/01/2006 15:04"}}</td>
+                        <td>{{.DoctorName}}</td>
+                        <td>{{printf "%.2f" .Price}}</td>
+                        <td>
+                            {{if eq .PaymentStatus "pago"}}
+                                <span style="color: green;">✅ {{.PaymentStatus}}</span>
+                            {{else}}
+                                <span style="color: orange;">❌ {{.PaymentStatus}}</span>
+                            {{end}}
+                        </td>
+                        <td class="action-links">
+                            {{if eq .PaymentStatus "pendente"}}
+                                <a href="/secretaria/appointments/mark-as-paid/{{.ID}}?patient_id={{$.Patient.ID}}" class="view-link-btn" style="background-color: #d1e7dd; border-color: #badbcc; color: #0f5132;">Marcar como Pago</a>
+                            {{end}}
+                            <a href="/secretaria/appointments/edit/{{.ID}}" class="edit-link">Editar</a>
+                            <a href="/secretaria/appointments/cancel/{{.ID}}?patient_id={{$.Patient.ID}}" class="delete-link" onclick="return confirm('Tem certeza?');">Desmarcar</a>
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr><td colspan="5" style="text-align: center;">Nenhuma consulta futura agendada.</td></tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </fieldset>
+
+        <fieldset>
+            <legend>Histórico de Consultas</legend>
+            <table class="user-table">
+                </table>
+        </fieldset>
+
+        <a href="/secretaria/patients" style="display: inline-block; margin-top: 20px;">Voltar para a Lista de Pacientes</a>
+    </div>
 </div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+    function showConsentLink(token) {
+        const baseURL = window.location.origin;
+        const portalURL = `${baseURL}/portal/login/${token}`;
+        prompt("Copie o link de consentimento e envie para o paciente:", portalURL);
+    }
+</script>
 {{end}}

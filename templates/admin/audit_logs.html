@@ -1,0 +1,46 @@
+{{define "head"}}
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="/static/css/admin_layout.css">
+{{end}}
+
+{{define "content"}}
+<div class="admin-container">
+    {{template "_admin_header.html" .}}
+
+    <div class="form-container">
+        <h2>Logs de Auditoria do Sistema</h2>
+        <p>Exibindo os últimos 100 eventos registrados.</p>
+
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th>Data/Hora</th>
+                    <th>Usuário</th>
+                    <th>Ação</th>
+                    <th>Alvo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Logs}}
+                <tr>
+                    <td>{{.CreatedAt.Format "02/01/2006 15:04:05"}}</td>
+                    <td>{{if .UserName.Valid}}{{.UserName.String}}{{else}}Sistema{{end}}</td>
+                    <td>{{.Action}}</td>
+                    <td>
+                        {{if .TargetType.Valid}}
+                            {{.TargetType.String}} (ID: {{.TargetID.Int64}})
+                        {{else}}
+                            N/A
+                        {{end}}
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 20px;">Nenhum log de auditoria encontrado.</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}

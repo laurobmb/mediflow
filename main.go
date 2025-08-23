@@ -210,7 +210,8 @@ func main() {
 		adminGroup.GET("/appointments/edit/:id", adminHandler.GetEditAppointmentForm)
 		adminGroup.POST("/appointments/edit/:id", adminHandler.PostEditAppointment)
 		adminGroup.GET("/appointments/cancel/:id", adminHandler.CancelAppointment)
-		adminGroup.GET("/appointments/mark-as-paid/:id", adminHandler.MarkAppointmentAsPaid)		
+		adminGroup.GET("/appointments/mark-as-paid/:id", adminHandler.MarkAppointmentAsPaid)
+	    adminGroup.GET("/audit-logs", adminHandler.ViewAuditLogs)
 	}
 
 	api := router.Group("/api/v1", AuthRequired())

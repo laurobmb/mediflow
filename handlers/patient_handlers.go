@@ -8,7 +8,8 @@ import (
 	"time"
 	"encoding/hex" // Adicionar import
 	"strconv" // <-- ADICIONE ESTA LINHA
-	
+	"fmt" // <-- ADICIONE ESTE IMPORT
+		
 	"github.com/gin-gonic/gin"
 	"mediflow/storage"
 )
@@ -40,9 +41,9 @@ func (h *PatientHandler) GetNewPatientForm(c *gin.Context) {
 
 // CreatePatient processa a submissão do formulário e agora gera um token.
 func (h *PatientHandler) CreatePatient(c *gin.Context) {
-	var patient storage.Patient
-	if err := c.ShouldBind(&patient); err != nil {
-		log.Printf("Erro ao fazer bind do formulário do paciente (secretária): %v", err)
+	var patientData storage.Patient
+	if err := c.ShouldBind(&patientData); err != nil {
+		log.Printf("Erro ao fazer bind do formulário simplificado do paciente: %v", err)
 		c.Redirect(http.StatusFound, "/secretaria/dashboard")
 		return
 	}
@@ -63,7 +64,7 @@ func (h *PatientHandler) CreatePatient(c *gin.Context) {
 
 	var patientID int
 	err = h.DB.QueryRow(query,
-		patient.Name, patient.Email, patient.Phone, patient.Mobile, 
+		patientData.Name, patientData.Email, patientData.Phone, patientData.Mobile,
 		token, time.Now(), time.Now(),
 	).Scan(&patientID)
 
@@ -73,6 +74,18 @@ func (h *PatientHandler) CreatePatient(c *gin.Context) {
 		return
 	}
 
-	// Redireciona para a nova página que exibe o token e o link
+	// ======================================================
+	// ADICIONANDO O REGISTRO DE AUDITORIA
+	// ======================================================
+	logInfo := LogAction{
+		DB:         h.DB,
+		Context:    c,
+		Action:     fmt.Sprintf("Cadastrou novo paciente: %s", patientData.Name),
+		TargetType: "Paciente",
+		TargetID:   patientID,
+	}
+	AddAuditLog(logInfo)
+	// ======================================================
+	
 	c.Redirect(http.StatusFound, "/secretaria/pacientes/token/"+strconv.Itoa(patientID))
 }

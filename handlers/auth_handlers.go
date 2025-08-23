@@ -68,7 +68,7 @@ func (h *AuthHandler) PostLogin(c *gin.Context) {
 	}
 
 	var user storage.User
-	query := "SELECT id, name, email, password_hash, user_type FROM users WHERE email = $1"
+	query := "SELECT id, name, email, password_hash, user_type FROM users WHERE email = $1 AND deleted_at IS NULL"
 	err := h.DB.QueryRow(query, loginData.Email).Scan(&user.ID, &user.Name, &user.Email, &user.PasswordHash, &user.UserType)
 
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(loginData.Password)) != nil {
