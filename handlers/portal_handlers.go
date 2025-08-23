@@ -71,8 +71,6 @@ func (h *PortalHandler) ShowConsentForm(c *gin.Context) {
 	})
 }
 
-// ProcessConsentForm salva os dados do formulário de consentimento.
-// handlers/portal_handlers.go
 
 func (h *PortalHandler) ProcessConsentForm(c *gin.Context) {
 	session := sessions.Default(c)
@@ -84,17 +82,17 @@ func (h *PortalHandler) ProcessConsentForm(c *gin.Context) {
 
 	errors := make(map[string]string)
 
-	// Validação do Nome - GARANTA QUE ESTA LINHA USE CRASES ``
+	// Validação do Nome
 	nameRegex := regexp.MustCompile(`^[\p{L}´]+\s[\p{L}´\s]+$`)
 	if !nameRegex.MatchString(consentName) {
 		errors["Name"] = "Por favor, insira o nome completo, sem números ou caracteres especiais."
 	}
 
-	// Validação do CPF
-	re := regexp.MustCompile(`[^0-9]`)
-	cpfClean := re.ReplaceAllString(consentCpfRg, "")
-	if len(cpfClean) != 11 {
-		errors["CPF"] = "O CPF deve conter exatamente 11 dígitos numéricos."
+	// =======================================================================
+	// CORREÇÃO: A validação do CPF agora usa a nova função completa IsCPFValid
+	// =======================================================================
+	if !IsCPFValid(consentCpfRg) {
+		errors["CPF"] = "O CPF informado é inválido. Por favor, verifique."
 	}
 	
 	if len(errors) > 0 {
@@ -111,6 +109,10 @@ func (h *PortalHandler) ProcessConsentForm(c *gin.Context) {
 		return
 	}
 
+	// Limpa o CPF para salvar no banco de dados sem formatação
+	re := regexp.MustCompile(`[^0-9]`)
+	cpfClean := re.ReplaceAllString(consentCpfRg, "")
+	
 	query := `UPDATE patients SET 
 		consent_name = $1, consent_cpf_rg = $2, how_found = $3, 
 		consent_given_at = NOW(), consent_date = NOW(), signature_date = NOW()
