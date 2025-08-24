@@ -94,8 +94,6 @@ func (h *SecretariaHandler) ViewAgenda(c *gin.Context) {
 	})
 }
 
-// handlers/secretaria_handlers.go
-
 func (h *SecretariaHandler) ViewPatients(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	page, err := strconv.Atoi(pageStr)
@@ -106,11 +104,28 @@ func (h *SecretariaHandler) ViewPatients(c *gin.Context) {
 	pageSize := 10
 	offset := (page - 1) * pageSize
 
-	query := `SELECT id, name, email, phone FROM patients WHERE name ILIKE $1 ORDER BY name ASC LIMIT $2 OFFSET $3`
-	countQuery := `SELECT COUNT(*) FROM patients WHERE name ILIKE $1`
+	query := `SELECT id, name, email, phone FROM patients WHERE deleted_at IS NULL`
+	countQuery := `SELECT COUNT(*) FROM patients WHERE deleted_at IS NULL`
+
+	var args []interface{}
+	var countArgs []interface{}
+
+	// 2. Adiciona a busca com "AND" se um termo for fornecido
+	if searchTerm != "" {
+		condition := ` AND name ILIKE $1`
+		query += condition
+		countQuery += condition
+		args = append(args, "%"+searchTerm+"%")
+		countArgs = append(countArgs, "%"+searchTerm+"%")
+	}
+
+	// 3. Adiciona a paginação no final
+	query += ` ORDER BY name ASC LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
+	args = append(args, pageSize, offset)
+
 
 	var totalRecords int
-	err = h.DB.QueryRow(countQuery, "%"+searchTerm+"%").Scan(&totalRecords)
+	err = h.DB.QueryRow(countQuery, countArgs...).Scan(&totalRecords)
 	if err != nil {
 		log.Printf("Erro ao contar pacientes (secretária): %v", err)
 		c.HTML(http.StatusInternalServerError, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Não foi possível carregar os dados dos pacientes."})
@@ -118,7 +133,7 @@ func (h *SecretariaHandler) ViewPatients(c *gin.Context) {
 	}
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
 
-	rows, err := h.DB.Query(query, "%"+searchTerm+"%", pageSize, offset)
+	rows, err := h.DB.Query(query, args...)
 	if err != nil {
 		log.Printf("Erro ao buscar pacientes (secretária): %v", err)
 		c.HTML(http.StatusInternalServerError, "layouts/error.html", gin.H{"Title": "Erro", "Message": "Não foi possível carregar os pacientes."})
@@ -129,15 +144,13 @@ func (h *SecretariaHandler) ViewPatients(c *gin.Context) {
 	var patients []storage.Patient
 	for rows.Next() {
 		var p storage.Patient
-		// CORREÇÃO: Usar sql.NullString para campos que podem ser nulos
 		var email, phone sql.NullString
 
 		if err := rows.Scan(&p.ID, &p.Name, &email, &phone); err != nil {
 			log.Printf("Erro ao escanear paciente (secretária): %v", err)
 			continue
 		}
-		
-		// Se o valor do banco não for nulo, atribui à struct.
+
 		if email.Valid {
 			p.Email = email.String
 		}
@@ -278,7 +291,8 @@ func (h *SecretariaHandler) SearchPatientsAPI(c *gin.Context) {
 		return
 	}
 
-	query := `SELECT name FROM patients WHERE name ILIKE $1 ORDER BY name ASC LIMIT 10`
+	// query := `SELECT name FROM patients WHERE name ILIKE $1 ORDER BY name ASC LIMIT 10`
+	query := `SELECT name FROM patients WHERE deleted_at IS NULL AND name ILIKE $1 ORDER BY name ASC LIMIT 10`
 	rows, err := h.DB.Query(query, term+"%")
 	if err != nil {
 		log.Printf("Erro na busca por autocompletar (secretária): %v", err)

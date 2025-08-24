@@ -212,18 +212,20 @@ func (h *AdminHandler) ViewPatients(c *gin.Context) {
 	pageSize := 10
 	offset := (page - 1) * pageSize
 
-	// CORRETO: A query busca 6 colunas.
-	query := `SELECT id, name, email, phone, consent_given_at, access_token FROM patients`
-	countQuery := `SELECT COUNT(*) FROM patients`
+	query := `SELECT id, name, email, phone, consent_given_at, access_token FROM patients WHERE deleted_at IS NULL`
+	countQuery := `SELECT COUNT(*) FROM patients WHERE deleted_at IS NULL`
+
 	var args []interface{}
 	var countArgs []interface{}
+
 	if searchTerm != "" {
-		condition := ` WHERE name ILIKE $1 OR email ILIKE $1`
+		condition := ` AND (name ILIKE $1 OR email ILIKE $1)`
 		query += condition
 		countQuery += condition
 		args = append(args, "%"+searchTerm+"%")
 		countArgs = append(countArgs, "%"+searchTerm+"%")
 	}
+
 	query += ` ORDER BY name ASC LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
 	args = append(args, pageSize, offset)
 
@@ -251,7 +253,6 @@ func (h *AdminHandler) ViewPatients(c *gin.Context) {
 		var consentGivenAt sql.NullTime
 		var accessToken sql.NullString
 
-		// CORREÇÃO: O Scan agora tem 6 variáveis de destino, correspondendo às 6 colunas da query.
 		if err := rows.Scan(&patient.ID, &patient.Name, &email, &phone, &consentGivenAt, &accessToken); err != nil {
 			log.Printf("Erro ao escanear paciente: %v", err)
 			continue
@@ -289,7 +290,8 @@ func (h *AdminHandler) SearchPatientsAPI(c *gin.Context) {
 		c.JSON(http.StatusOK, []string{})
 		return
 	}
-	query := `SELECT name FROM patients WHERE name ILIKE $1 ORDER BY name ASC LIMIT 10`
+	// query := `SELECT name FROM patients WHERE name ILIKE $1 ORDER BY name ASC LIMIT 10`
+	query := `SELECT name FROM patients WHERE deleted_at IS NULL AND name ILIKE $1 ORDER BY name ASC LIMIT 10`
 	rows, err := h.DB.Query(query, term+"%")
 	if err != nil {
 		log.Printf("Erro na busca por autocompletar: %v", err)
@@ -562,12 +564,27 @@ func (h *AdminHandler) PostEditPatient(c *gin.Context) {
 }
 
 func (h *AdminHandler) DeletePatient(c *gin.Context) {
-    id := c.Param("id")
-    _, err := h.DB.Exec("DELETE FROM patients WHERE id = $1", id)
-    if err != nil {
-        log.Printf("Erro ao remover paciente: %v", err)
-    }
-    c.Redirect(http.StatusFound, "/admin/patients")
+	id := c.Param("id")
+
+	// LÓGICA ATUALIZADA: Usar UPDATE para marcar como removido (soft delete)
+	_, err := h.DB.Exec("UPDATE patients SET deleted_at = NOW() WHERE id = $1", id)
+
+	if err != nil {
+		log.Printf("Erro ao remover (soft delete) paciente: %v", err)
+		// Aqui você poderia adicionar uma flash message de erro para o usuário
+	} else {
+		// ADICIONAR REGISTRO DE AUDITORIA PARA A AÇÃO
+		logInfo := LogAction{
+			DB:         h.DB,
+			Context:    c,
+			Action:     fmt.Sprintf("Removeu (inativou) o paciente com ID: %s", id),
+			TargetType: "Paciente",
+			TargetID:   safeAtoi(id),
+		}
+		AddAuditLog(logInfo)
+	}
+
+	c.Redirect(http.StatusFound, "/admin/patients")
 }
 
 // toDate é uma função de ajuda para converter strings de data para o formato do DB ou nil.

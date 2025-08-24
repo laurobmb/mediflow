@@ -56,7 +56,7 @@ func (h *TerapeutaHandler) TerapeutaDashboard(c *gin.Context) {
 		SELECT DISTINCT p.id, p.name, p.email, p.phone
 		FROM patients p
 		JOIN appointments a ON p.id = a.patient_id
-		WHERE a.doctor_id = $1 AND p.name ILIKE $2
+		WHERE a.doctor_id = $1 AND p.name ILIKE $2 AND p.deleted_at IS NULL
 		ORDER BY p.name ASC`
 
 	rows, err = h.DB.Query(queryPatients, userID, "%"+searchTerm+"%")
@@ -207,13 +207,21 @@ func (h *TerapeutaHandler) SearchMyPatientsAPI(c *gin.Context) {
         return
     }
 
-    query := `
-        SELECT DISTINCT p.name
-        FROM patients p
-        JOIN appointments a ON p.id = a.patient_id
-        WHERE a.doctor_id = $1 AND p.name ILIKE $2
-        ORDER BY p.name ASC
-        LIMIT 10`
+    // query := `
+    //     SELECT DISTINCT p.name
+    //     FROM patients p
+    //     JOIN appointments a ON p.id = a.patient_id
+    //     WHERE a.doctor_id = $1 AND p.name ILIKE $2
+    //     ORDER BY p.name ASC
+    //     LIMIT 10`
+
+	query := `
+		SELECT DISTINCT p.name
+		FROM patients p
+		JOIN appointments a ON p.id = a.patient_id
+		WHERE a.doctor_id = $1 AND p.name ILIKE $2 AND p.deleted_at IS NULL
+		ORDER BY p.name ASC
+		LIMIT 10`		
 
     rows, err := h.DB.Query(query, therapistID, term+"%")
     if err != nil {

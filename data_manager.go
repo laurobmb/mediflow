@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS patients (
     main_complaint TEXT, complaint_history TEXT, signs_symptoms TEXT, current_treatment TEXT,
     how_found VARCHAR(255), referral_name VARCHAR(255), other_source VARCHAR(255), notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL -- <-- ADICIONE ESTA LINHA
 );
 
 CREATE TABLE IF NOT EXISTS patient_records (
@@ -91,6 +92,7 @@ func main() {
 	createUsers := flag.Bool("create-users", false, "Cria usuários de exemplo.")
 	populateDB := flag.Bool("populate", false, "Popula o banco com dados de teste.")
 	viewLogs := flag.Bool("audit", false, "Exibe os logs de auditoria do sistema.") // <-- NOVA FLAG
+	viewDeletedPatients := flag.Bool("deleted-patients", false, "Exibe os pacientes que foram removidos (soft delete).") // <-- NOVA FLAG
 	flag.Parse()
 
 	if err := godotenv.Load(); err != nil {
@@ -133,9 +135,59 @@ func main() {
 	}
 	// ------------------------------------
 
-	if !*initDB && !*createUsers && !*populateDB {
-		fmt.Println("Use uma flag para executar uma ação: -init, -create-users, ou -populate.")
+	// --- NOVA LÓGICA PARA EXIBIR PACIENTES REMOVIDOS ---
+	if *viewDeletedPatients {
+		fmt.Println("Exibindo pacientes removidos...")
+		if err := displayDeletedPatients(db); err != nil {
+			log.Fatalf("Erro ao exibir pacientes removidos: %v", err)
+		}
 	}
+	// --------------------------------------------------
+
+	// CONDIÇÃO CORRIGIDA: Verifica se NENHUMA flag de ação foi usada
+	if !*initDB && !*createUsers && !*populateDB && !*viewLogs && !*viewDeletedPatients {
+		fmt.Println("Use uma flag para executar uma ação: -init, -create-users, -populate, -audit, ou -deleted-patients.")
+	}
+
+}
+
+// NOVA FUNÇÃO PARA EXIBIR PACIENTES REMOVIDOS
+func displayDeletedPatients(db *sql.DB) error {
+	query := `SELECT id, name, email, phone, deleted_at 
+			  FROM patients 
+			  WHERE deleted_at IS NOT NULL 
+			  ORDER BY deleted_at DESC`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	fmt.Println(strings.Repeat("-", 120))
+	fmt.Printf("%-5s | %-40s | %-30s | %-20s | %-30s\n", "ID", "Nome", "Email", "Telefone", "Data da Remoção")
+	fmt.Println(strings.Repeat("-", 120))
+
+	for rows.Next() {
+		var id int
+		var deletedAt time.Time
+		var name, email, phone sql.NullString
+
+		if err := rows.Scan(&id, &name, &email, &phone, &deletedAt); err != nil {
+			log.Printf("Erro ao escanear paciente removido: %v", err)
+			continue
+		}
+
+		fmt.Printf("%-5d | %-40s | %-30s | %-20s | %-30s\n",
+			id,
+			name.String,
+			email.String,
+			phone.String,
+			deletedAt.Format("02/01/2006 15:04:05"),
+		)
+	}
+	fmt.Println(strings.Repeat("-", 120))
+	return nil
 }
 
 // FUNÇÃO PARA POPULAR O BANCO COM DADOS RICOS E COMPLETOS (VERSÃO FINAL)
