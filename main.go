@@ -137,9 +137,11 @@ func main() {
         } else {
             log.Println("AVISO: Provedor de IA 'gemini' selecionado, mas GEMINI_API_KEY não foi encontrada no .env.")
         }
-    case "ollama":
-        log.Println("Provedor 'ollama' selecionado, mas ainda não implementado.")
-        // No futuro: aiService = services.NewOllamaService(...)
+	case "ollama":
+		apiURL := os.Getenv("OLLAMA_API_URL")
+		modelName := os.Getenv("OLLAMA_MODEL")
+		aiService = services.NewOllamaService(apiURL, modelName)
+		log.Printf("Usando o provedor de IA: Ollama (Modelo: %s)", modelName)
     default:
         log.Println("Nenhum provedor de IA configurado no .env. A funcionalidade de resumo estará desabilitada.")
     }
