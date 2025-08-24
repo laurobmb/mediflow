@@ -37,7 +37,17 @@
                 ❌ Paciente ainda não preencheu o termo de consentimento.
             </div>
         {{end}}
-                
+
+        <fieldset>
+            <legend>Assistente de IA</legend>
+            <div id="ai-summary-controls" data-usertype="{{.UserType}}" data-patientid="{{.Patient.ID}}">
+                <button id="btn-ai-summary" class="btn-submit" style="background-color: #5A3A81; width: auto; margin-bottom: 20px;">
+                    Gerar Resumo com IA
+                </button>
+                <div id="ai-summary-container" class="ai-summary-box" style="display: none;"></div>
+            </div>
+        </fieldset>
+
         <form action="{{.Action}}" method="post">
             
             <fieldset>
@@ -145,4 +155,8 @@
         </form>
     </div>
 </div>
+{{end}}
+
+{{define "scripts"}}
+    <script src="/static/js/ai_summary.js"></script>
 {{end}}

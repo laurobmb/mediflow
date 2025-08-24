@@ -15,6 +15,7 @@ import (
 	"github.com/joho/godotenv"
 	"mediflow/handlers"
 	"mediflow/storage"
+	"mediflow/services"
 )
 
 type multiTemplateRenderer struct {
@@ -122,13 +123,35 @@ func main() {
 	}
 	defer db.Close()
 
+    // --- INICIALIZAÇÃO DO SERVIÇO DE IA ---
+    var aiService services.AIService
+    aiProvider := os.Getenv("AI_PROVIDER")
+
+    switch aiProvider {
+    case "gemini":
+        apiKey := os.Getenv("GEMINI_API_KEY")
+        modelName := os.Getenv("GEMINI_MODEL")
+        if apiKey != "" {
+            aiService = services.NewGeminiService(apiKey, modelName)
+            log.Println("Usando o provedor de IA: Gemini")
+        } else {
+            log.Println("AVISO: Provedor de IA 'gemini' selecionado, mas GEMINI_API_KEY não foi encontrada no .env.")
+        }
+    case "ollama":
+        log.Println("Provedor 'ollama' selecionado, mas ainda não implementado.")
+        // No futuro: aiService = services.NewOllamaService(...)
+    default:
+        log.Println("Nenhum provedor de IA configurado no .env. A funcionalidade de resumo estará desabilitada.")
+    }
+    // --- FIM DA INICIALIZAÇÃO ---
+
 	// Inicialização de todos os handlers
 	authHandler := &handlers.AuthHandler{DB: db}
 	patientHandler := &handlers.PatientHandler{DB: db}
-	adminHandler := &handlers.AdminHandler{DB: db}
+	adminHandler := &handlers.AdminHandler{DB: db, AIService: aiService}
 	secretariaHandler := &handlers.SecretariaHandler{DB: db}
     portalHandler := &handlers.PortalHandler{DB: db} // Adicionar novo handler
-    terapeutaHandler := &handlers.TerapeutaHandler{DB: db} // <-- ADICIONE ESTA LINHA
+    terapeutaHandler := &handlers.TerapeutaHandler{DB: db, AIService: aiService}
 	
 	router := gin.Default()
 	router.HTMLRender = newMultiTemplateRenderer("templates")
@@ -184,6 +207,7 @@ func main() {
 		terapeutaGroup.GET("/pacientes/prontuario/:id", terapeutaHandler.ShowPatientRecord)
 		terapeutaGroup.POST("/pacientes/prontuario/:id", terapeutaHandler.ProcessPatientRecord)
 		terapeutaGroup.GET("/pacientes/search", terapeutaHandler.SearchMyPatientsAPI)
+		terapeutaGroup.GET("/pacientes/:id/ai-summary", terapeutaHandler.GetAISummary) // <-- ADICIONE ESTA LINHA
 	}
 
 	adminGroup := router.Group("/admin", AuthRequired(), RoleRequired("admin"))
@@ -212,6 +236,8 @@ func main() {
 		adminGroup.GET("/appointments/cancel/:id", adminHandler.CancelAppointment)
 		adminGroup.GET("/appointments/mark-as-paid/:id", adminHandler.MarkAppointmentAsPaid)
 	    adminGroup.GET("/audit-logs", adminHandler.ViewAuditLogs)
+		adminGroup.GET("/pacientes/:id/ai-summary", adminHandler.GetAISummary) // <-- ADICIONE ESTA LINHA
+
 	}
 
 	api := router.Group("/api/v1", AuthRequired())

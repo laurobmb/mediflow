@@ -8,16 +8,19 @@ import (
 	"strconv"
 	"time"
 	"fmt"
+    "strings" // <-- ADICIONE ESTA LINHA
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"mediflow/storage"
+	"mediflow/services"
 )
 
 // AdminHandler gerencia a lógica do painel de administração.
 type AdminHandler struct {
 	DB *sql.DB
+	AIService services.AIService
 }
 
 // MonitoringData é a struct para os dados do dashboard.
@@ -1169,4 +1172,58 @@ func (h *AdminHandler) ViewAuditLogs(c *gin.Context) {
 		"Logs":      logs,
 		"ActiveNav": "logs", // Para destacar o item no menu
 	})
+}
+
+// handlers/admin_handlers.go
+
+// GetAISummary busca o histórico do paciente e chama a IA para o perfil de Admin.
+func (h *AdminHandler) GetAISummary(c *gin.Context) {
+    if h.AIService == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "A funcionalidade de resumo por IA não está configurada no servidor."})
+        return
+    }
+
+    patientIDstr := c.Param("id")
+    patientID, _ := strconv.Atoi(patientIDstr)
+
+    // 1. Buscar e formatar o histórico do paciente
+    query := `
+        SELECT r.record_date, u.name as doctor_name, r.main_complaint, r.notes,
+               r.anxiety_level, r.anger_level, r.fear_level, r.sadness_level, r.joy_level, r.energy_level
+        FROM patient_records r
+        JOIN users u ON r.doctor_id = u.id
+        WHERE r.patient_id = $1 ORDER BY r.record_date ASC
+    `
+    rows, err := h.DB.Query(query, patientID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar dados do paciente."})
+        return
+    }
+    defer rows.Close()
+
+    var historico strings.Builder
+    historico.WriteString("Histórico de Sessões do Paciente:\n\n")
+    recordCount := 0
+    for rows.Next() {
+        recordCount++
+        var rec storage.PatientRecord
+        rows.Scan(&rec.RecordDate, &rec.DoctorName, &rec.MainComplaint, &rec.Notes, &rec.AnxietyLevel, &rec.AngerLevel, &rec.FearLevel, &rec.SadnessLevel, &rec.JoyLevel, &rec.EnergyLevel)
+        historico.WriteString(fmt.Sprintf("Sessão em %s (com Dr(a). %s):\n- Níveis (0-10): Ansiedade(%d), Raiva(%d), Medo(%d), Tristeza(%d), Alegria(%d), Energia(%d)\n- Queixa: %s\n- Notas: %s\n\n",
+            rec.RecordDate.Format("02/01/2006"), rec.DoctorName, rec.AnxietyLevel, rec.AngerLevel, rec.FearLevel, rec.SadnessLevel, rec.JoyLevel, rec.EnergyLevel, rec.MainComplaint, rec.Notes))
+    }
+
+    if recordCount == 0 {
+        c.JSON(http.StatusOK, gin.H{"summary": "Não há dados de prontuário suficientes para gerar um resumo."})
+        return
+    }
+
+    // 2. Chamar o serviço de IA
+    summary, err := h.AIService.GenerateSummary(c.Request.Context(), historico.String())
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    // 3. Enviar a resposta
+    c.JSON(http.StatusOK, gin.H{"summary": summary})
 }
