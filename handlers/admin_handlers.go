@@ -323,6 +323,7 @@ func (h *AdminHandler) GetNewPatientForm(c *gin.Context) {
 	})
 }
 
+// --- FUNÇÃO CORRIGIDA ---
 func (h *AdminHandler) PostNewPatient(c *gin.Context) {
 	var patient storage.Patient
 	if err := c.ShouldBind(&patient); err != nil {
@@ -331,7 +332,6 @@ func (h *AdminHandler) PostNewPatient(c *gin.Context) {
 		return
 	}
 
-	// Gera o token de acesso único (chama a função que já existe no pacote)
 	token, err := generateSecureToken(32)
 	if err != nil {
 		log.Printf("Erro ao gerar token seguro: %v", err)
@@ -339,27 +339,67 @@ func (h *AdminHandler) PostNewPatient(c *gin.Context) {
 		return
 	}
 
-	query := `
-	INSERT INTO patients (
-		consent_date, consent_name, consent_cpf_rg, signature_date, signature_location, 
-		name, address_street, address_number, address_neighborhood, address_city, address_state, 
-		phone, mobile, dob, age, gender, marital_status, children, num_children, profession, email, 
-		emergency_contact, emergency_phone, emergency_other, 
-		created_at, updated_at, access_token
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
-	`
+	tx, err := h.DB.Begin()
+	if err != nil {
+		log.Printf("Erro ao iniciar transação: %v", err)
+		c.Redirect(http.StatusFound, "/admin/patients")
+		return
+	}
 
-	// CORREÇÃO: Usa '=' em vez de ':=' para a variável 'err' que já foi declarada
-	_, err = h.DB.Exec(query,
-		toDate(patient.ConsentDate), patient.ConsentName, patient.ConsentCpfRg, toDate(patient.SignatureDate), patient.SignatureLocation,
-		patient.Name, patient.AddressStreet, patient.AddressNumber, patient.AddressNeighborhood, patient.AddressCity, patient.AddressState,
-		patient.Phone, patient.Mobile, toDate(patient.DOB), patient.Age, patient.Gender, patient.MaritalStatus, patient.Children, patient.NumChildren,
-		patient.Profession, patient.Email, patient.EmergencyContact, patient.EmergencyPhone, patient.EmergencyOther,
-		time.Now(), time.Now(), token) 
+	// 1. Inserir na tabela 'patients'
+	patientQuery := `
+	INSERT INTO patients (
+		name, email, phone, mobile, dob, age, profession,
+		anxiety_level, anger_level, fear_level, sadness_level, joy_level, energy_level,
+		main_complaint, complaint_history, signs_symptoms, current_treatment, notes,
+		created_at, updated_at, access_token
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+	RETURNING id`
+
+	var patientID int
+	err = tx.QueryRow(patientQuery,
+		patient.Name, patient.Email, patient.Phone, patient.Mobile, toDate(patient.DOB), patient.Age, patient.Profession,
+		patient.AnxietyLevel, patient.AngerLevel, patient.FearLevel, patient.SadnessLevel, patient.JoyLevel, patient.EnergyLevel,
+		patient.MainComplaint, patient.ComplaintHistory, patient.SignsSymptoms, patient.CurrentTreatment, patient.Notes,
+		time.Now(), time.Now(), token,
+	).Scan(&patientID)
 
 	if err != nil {
-		log.Printf("Erro ao inserir novo paciente pelo admin: %v", err)
+		tx.Rollback()
+		log.Printf("Erro ao inserir novo paciente na tabela 'patients': %v", err)
+		c.Redirect(http.StatusFound, "/admin/patients")
+		return
 	}
+
+	// 2. Inserir o primeiro registro na tabela 'patient_records'
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int)
+
+	recordQuery := `
+	INSERT INTO patient_records (
+		patient_id, doctor_id, anxiety_level, anger_level, fear_level, sadness_level, 
+		joy_level, energy_level, main_complaint, complaint_history, signs_symptoms, 
+		current_treatment, notes, record_date
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+
+	_, err = tx.Exec(recordQuery,
+		patientID, userID, patient.AnxietyLevel, patient.AngerLevel, patient.FearLevel, patient.SadnessLevel,
+		patient.JoyLevel, patient.EnergyLevel, patient.MainComplaint, patient.ComplaintHistory,
+		patient.SignsSymptoms, patient.CurrentTreatment, patient.Notes, time.Now())
+
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Erro ao inserir registro inicial em 'patient_records': %v", err)
+		c.Redirect(http.StatusFound, "/admin/patients")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Erro ao comitar a transação: %v", err)
+		c.Redirect(http.StatusFound, "/admin/patients")
+		return
+	}
+
 	c.Redirect(http.StatusFound, "/admin/patients")
 }
 
