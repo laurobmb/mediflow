@@ -83,30 +83,91 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 `
+// newDBConnection agora aceita os parâmetros de conexão diretamente.
+func newDBConnection(dbHost, dbPort, dbUser, dbPass, dbName string) (*sql.DB, error) {
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dbHost, dbPort, dbUser, dbPass, dbName)
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao abrir a conexão com o banco de dados: %w", err)
+	}
+
+	if err = db.Ping(); err != nil {
+		return nil, fmt.Errorf("falha ao pingar o banco de dados: %w", err)
+	}
+
+	return db, nil
+}
 
 func main() {
+	// Carrega .env para ter valores padrão
+	godotenv.Load()
+
+	// Flags para ações
 	initDB := flag.Bool("init", false, "Inicializa o banco de dados e cria tabelas.")
 	createUsers := flag.Bool("create-users", false, "Cria usuários de exemplo.")
 	populateDB := flag.Bool("populate", false, "Popula o banco com dados de teste.")
+	createTestDB := flag.Bool("create-test-db", false, "Cria um banco de dados de teste com nome único.")
 	viewLogs := flag.Bool("audit", false, "Exibe os logs de auditoria do sistema.")
 	viewDeletedPatients := flag.Bool("deleted-patients", false, "Exibe os pacientes que foram removidos (soft delete).")
+	createSingleUserFlag := flag.Bool("create-single-user", false, "Cria um único usuário com os detalhes fornecidos.")
+	deleteUserByEmail := flag.String("delete-user-by-email", "", "Deleta um usuário permanentemente pelo email.")
+	listUsers := flag.Bool("list-users", false, "Lista todos os usuários ativos no banco de dados.")
+
+	// Flags para detalhes do novo usuário
+	userName := flag.String("user-name", "", "Nome do usuário a ser criado.")
+	userEmail := flag.String("user-email", "", "Email do usuário a ser criado.")
+	userPassword := flag.String("user-password", "", "Senha do usuário a ser criado.")
+	userRole := flag.String("user-role", "", "Perfil do usuário (admin, secretaria, terapeuta).")
+
+	// Flags para configuração do banco de dados (sobrescrevem o .env)
+	dbHost := flag.String("dbhost", os.Getenv("DB_HOST"), "Endereço do servidor do banco de dados")
+	dbPort := flag.String("dbport", os.Getenv("DB_PORT"), "Porta do servidor do banco de dados")
+	dbUser := flag.String("dbuser", os.Getenv("DB_USER"), "Usuário do banco de dados")
+	dbPass := flag.String("dbpass", os.Getenv("DB_PASS"), "Senha do banco de dados")
+	dbName := flag.String("dbname", os.Getenv("DB_NAME"), "Nome do banco de dados")
+
 	flag.Parse()
 
-	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Erro ao carregar o arquivo .env: %v", err)
+	if *createTestDB {
+		// Conecta ao postgres DB para poder criar outro banco
+		adminDB, err := newDBConnection(*dbHost, *dbPort, *dbUser, *dbPass, "postgres")
+		if err != nil {
+			log.Fatalf("Falha ao conectar ao banco 'postgres' para criar o banco de teste: %v", err)
+		}
+		defer adminDB.Close()
+
+		testDBName := fmt.Sprintf("mediflow_test_%s", time.Now().Format("02_01_06"))
+		log.Printf("Criando banco de dados de teste: %s", testDBName)
+
+		_, err = adminDB.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", testDBName))
+		if err != nil {
+			log.Fatalf("Falha ao dropar banco de dados de teste antigo: %v", err)
+		}
+
+		_, err = adminDB.Exec(fmt.Sprintf("CREATE DATABASE %s", testDBName))
+		if err != nil {
+			log.Fatalf("Falha ao criar o banco de dados de teste: %v", err)
+		}
+		log.Println("Banco de dados de teste criado com sucesso.")
+		fmt.Println(testDBName) // Imprime o nome para o script de teste poder capturar
+		return
 	}
-	db, err := newDBConnection()
+
+	// Conexão principal para as outras operações
+	db, err := newDBConnection(*dbHost, *dbPort, *dbUser, *dbPass, *dbName)
 	if err != nil {
-		log.Fatalf("Falha ao conectar ao banco de dados: %v", err)
+		log.Fatalf("Falha ao conectar ao banco de dados '%s': %v", *dbName, err)
 	}
 	defer db.Close()
 
 	if *initDB {
-		fmt.Println("Inicializando o banco de dados...")
+		fmt.Println("Inicializando tabelas no banco de dados:", *dbName)
 		if err := initializeDB(db); err != nil {
 			log.Fatalf("Erro ao inicializar o banco de dados: %v", err)
 		}
-		fmt.Println("Banco de dados inicializado com sucesso!")
+		fmt.Println("Tabelas inicializadas com sucesso!")
 	}
 	if *createUsers {
 		fmt.Println("Criando usuários de exemplo...")
@@ -122,27 +183,126 @@ func main() {
 		}
 		fmt.Println("Dados de teste inseridos com sucesso!")
 	}
-
+	if *createSingleUserFlag {
+		fmt.Println("Criando um novo usuário...")
+		if *userName == "" || *userEmail == "" || *userPassword == "" || *userRole == "" {
+			log.Fatalf("Para criar um usuário, todas as flags são necessárias: -user-name, -user-email, -user-password, -user-role")
+		}
+		if err := createUser(db, *userName, *userEmail, *userPassword, *userRole); err != nil {
+			log.Fatalf("Erro ao criar usuário: %v", err)
+		}
+		fmt.Printf("Usuário '%s' criado com sucesso!\n", *userName)
+	}
+	if *deleteUserByEmail != "" {
+		fmt.Printf("Tentando deletar o usuário com email: %s\n", *deleteUserByEmail)
+		if err := deleteUser(db, *deleteUserByEmail); err != nil {
+			log.Fatalf("Erro ao deletar usuário: %v", err)
+		}
+		fmt.Printf("Usuário com email '%s' deletado com sucesso (se existia).\n", *deleteUserByEmail)
+	}
+	if *listUsers {
+		fmt.Println("Listando usuários ativos...")
+		if err := displayUsers(db); err != nil {
+			log.Fatalf("Erro ao listar usuários: %v", err)
+		}
+	}
 	if *viewLogs {
 		fmt.Println("Exibindo logs de auditoria...")
 		if err := displayAuditLogs(db); err != nil {
 			log.Fatalf("Erro ao exibir logs de auditoria: %v", err)
 		}
 	}
-
 	if *viewDeletedPatients {
 		fmt.Println("Exibindo pacientes removidos...")
 		if err := displayDeletedPatients(db); err != nil {
 			log.Fatalf("Erro ao exibir pacientes removidos: %v", err)
 		}
 	}
-
-	if !*initDB && !*createUsers && !*populateDB && !*viewLogs && !*viewDeletedPatients {
-		fmt.Println("Use uma flag para executar uma ação: -init, -create-users, -populate, -audit, ou -deleted-patients.")
-	}
 }
 
-// FUNÇÃO PARA POPULAR O BANCO COM DADOS RICOS E COMPLETOS (VERSÃO ATUALIZADA)
+// createUser cria um usuário individual no banco de dados.
+func createUser(db *sql.DB, name, email, password, role string) error {
+	// Valida o perfil (role)
+	validRoles := map[string]bool{"admin": true, "secretaria": true, "terapeuta": true}
+	if !validRoles[role] {
+		return fmt.Errorf("perfil (role) inválido: '%s'. Use 'admin', 'secretaria' ou 'terapeuta'", role)
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("falha ao gerar hash da senha: %w", err)
+	}
+
+	query := `INSERT INTO users (name, email, password_hash, user_type) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING;`
+	result, err := db.Exec(query, name, email, string(hashedPassword), role)
+	if err != nil {
+		return fmt.Errorf("falha ao inserir usuário %s: %w", email, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("falha ao verificar linhas afetadas: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("o email '%s' já existe no banco de dados", email)
+	}
+
+	return nil
+}
+
+// deleteUser deleta um usuário permanentemente pelo email.
+func deleteUser(db *sql.DB, email string) error {
+	query := `DELETE FROM users WHERE email = $1`
+	result, err := db.Exec(query, email)
+	if err != nil {
+		return fmt.Errorf("falha ao executar o comando DELETE: %w", err)
+	}
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		log.Printf("Aviso: Nenhum usuário encontrado com o email '%s'. Nenhuma ação foi tomada.", email)
+	}
+	return nil
+}
+
+// displayUsers lista todos os usuários ativos no banco de dados.
+func displayUsers(db *sql.DB) error {
+	query := `SELECT id, name, email, user_type, created_at FROM users WHERE deleted_at IS NULL ORDER BY name ASC`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	fmt.Println(strings.Repeat("-", 120))
+	fmt.Printf("%-5s | %-40s | %-30s | %-15s | %-30s\n", "ID", "Nome", "Email", "Perfil", "Criado em")
+	fmt.Println(strings.Repeat("-", 120))
+
+	for rows.Next() {
+		var id int
+		var createdAt time.Time
+		var name, email, userType string
+
+		if err := rows.Scan(&id, &name, &email, &userType, &createdAt); err != nil {
+			log.Printf("Erro ao escanear usuário: %v", err)
+			continue
+		}
+
+		fmt.Printf("%-5d | %-40s | %-30s | %-15s | %-30s\n",
+			id,
+			name,
+			email,
+			userType,
+			createdAt.Format("02/01/2006 15:04:05"),
+		)
+	}
+	fmt.Println(strings.Repeat("-", 120))
+	return nil
+}
+
+
+// ... (O resto das funções como populateData, createDefaultUsers, etc. continuam aqui sem alteração) ...
+
 func populateData(db *sql.DB, patientCount int) error {
 	rand.Seed(time.Now().UnixNano())
 
@@ -305,11 +465,8 @@ func populateData(db *sql.DB, patientCount int) error {
 }
 
 // Funções auxiliares
-func newDBConnection() (*sql.DB, error) { dbType := os.Getenv("DB_TYPE"); dbHost := os.Getenv("DB_HOST"); dbPort := os.Getenv("DB_PORT"); dbUser := os.Getenv("DB_USER"); dbPass := os.Getenv("DB_PASS"); dbName := os.Getenv("DB_NAME"); connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPass, dbName); db, err := sql.Open(dbType, connStr); if err != nil { return nil, err }; if err = db.Ping(); err != nil { return nil, err }; return db, nil }
 func initializeDB(db *sql.DB) error { _, err := db.Exec(createTableSQL); return err }
 func createDefaultUsers(db *sql.DB) error { users := []struct { name string; email string; password string; userType string }{ {"Admin User", "admin@mediflow.com", "senha123", "admin"}, {"Dr. Exemplo", "terapeuta@mediflow.com", "senha123", "terapeuta"}, {"Secretaria Exemplo", "secretaria@mediflow.com", "senha123", "secretaria"}, }; for _, u := range users { hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost); if err != nil { return fmt.Errorf("falha ao gerar hash para %s: %w", u.email, err) }; query := ` INSERT INTO users (name, email, password_hash, user_type) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING; `; _, err = db.Exec(query, u.name, u.email, string(hashedPassword), u.userType); if err != nil { return fmt.Errorf("falha ao inserir usuário %s: %w", u.email, err) } }; return nil }
-
-// NOVA FUNÇÃO PARA EXIBIR PACIENTES REMOVIDOS
 func displayDeletedPatients(db *sql.DB) error {
 	query := `SELECT id, name, email, phone, deleted_at 
 			  FROM patients 
@@ -347,8 +504,6 @@ func displayDeletedPatients(db *sql.DB) error {
 	fmt.Println(strings.Repeat("-", 120))
 	return nil
 }
-
-// NOVA FUNÇÃO PARA EXIBIR OS LOGS DE AUDITORIA
 func displayAuditLogs(db *sql.DB) error {
 	query := `SELECT id, user_id, user_name, action, target_type, target_id, created_at 
               FROM audit_logs ORDER BY created_at DESC`
