@@ -128,3 +128,115 @@ A aplicação estará acessível em `http://localhost:8080`.
   * **Admin:** `admin@mediflow.com` / `senha123`
   * **Secretária:** `secretaria@mediflow.com` / `senha123`
   * **Terapeuta:** `terapeuta@mediflow.com` / `senha123`
+
+## Fotos
+
+<!-- Tabela para exibir as screenshots do fluxo de teste em uma grade -->
+<table align="center">
+    <!-- Linha 1 -->
+    <tr>
+        <td align="center">
+            <p><strong>01. Dashboard Inicial</strong></p>
+            <img src="photos/01_dashboard_inicial.png" alt="Screenshot do Dashboard Inicial" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>02. Agenda</strong></p>
+            <img src="photos/02_agenda.png" alt="Screenshot da Agenda" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 2 -->
+    <tr>
+        <td align="center">
+            <p><strong>03. Gerenciar Usuários</strong></p>
+            <img src="photos/03_gerenciar_usuarios.png" alt="Screenshot da tela de Gerenciar Usuários" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>04. Gerenciar Pacientes</strong></p>
+            <img src="photos/04_gerenciar_pacientes.png" alt="Screenshot da tela de Gerenciar Pacientes" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 3 -->
+    <tr>
+        <td align="center">
+            <p><strong>05. Monitoramento</strong></p>
+            <img src="photos/05_monitoramento.png" alt="Screenshot da tela de Monitoramento" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>06. Logs de Auditoria</strong></p>
+            <img src="photos/06_logs_auditoria.png" alt="Screenshot da tela de Logs de Auditoria" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 4 -->
+    <tr>
+        <td align="center">
+            <p><strong>07. Formulário Novo Usuário</strong></p>
+            <img src="photos/07_formulario_novo_usuario.png" alt="Screenshot do Formulário de Novo Usuário" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>08. Lista com Novo Usuário</strong></p>
+            <img src="photos/08_lista_com_novo_usuario.png" alt="Screenshot da Lista com Novo Usuário" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 5 -->
+    <tr>
+        <td align="center">
+            <p><strong>09. Lista Após Remoção</strong></p>
+            <img src="photos/09_lista_apos_remocao_usuario.png" alt="Screenshot da Lista Após Remoção do Usuário" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>10. Formulário Novo Paciente</strong></p>
+            <img src="photos/10_formulario_novo_paciente_preenchido.png" alt="Screenshot do Formulário de Novo Paciente Preenchido" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 6 -->
+    <tr>
+        <td align="center">
+            <p><strong>11. Formulário Consentimento</strong></p>
+            <img src="photos/11_formulario_consentimento.png" alt="Screenshot do Formulário de Consentimento" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>12. Página de Sucesso</strong></p>
+            <img src="photos/12_pagina_sucesso_consentimento.png" alt="Screenshot da Página de Sucesso do Consentimento" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 7 -->
+    <tr>
+        <td align="center">
+            <p><strong>13. Status do Consentimento Atualizado</strong></p>
+            <img src="photos/13_status_consentimento_atualizado.png" alt="Screenshot do Status do Consentimento Atualizado" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>14. Perfil para Agendamento</strong></p>
+            <img src="photos/14_perfil_paciente_para_agendamento.png" alt="Screenshot do Perfil do Paciente para Agendamento" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 8 -->
+    <tr>
+        <td align="center">
+            <p><strong>15. Formulário de Agendamento</strong></p>
+            <img src="photos/15_formulario_agendamento_preenchido.png" alt="Screenshot do Formulário de Agendamento Preenchido" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>16. Consulta Agendada</strong></p>
+            <img src="photos/16_consulta_agendada_com_sucesso.png" alt="Screenshot da Consulta Agendada com Sucesso" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 9 -->
+    <tr>
+        <td align="center">
+            <p><strong>17. Consulta Marcada como Paga</strong></p>
+            <img src="photos/17_consulta_marcada_como_paga.png" alt="Screenshot da Consulta Marcada como Paga" width="100%">
+        </td>
+        <td align="center">
+            <p><strong>18. Resumo da IA Gerado</strong></p>
+            <img src="photos/18_resumo_ia_gerado_pelo_admin.png" alt="Screenshot do Resumo da IA Gerado" width="100%">
+        </td>
+    </tr>
+    <!-- Linha 10 (centralizada) -->
+    <tr>
+        <td align="center" colspan="2">
+            <p><strong>19. Logout Final</strong></p>
+            <img src="photos/19_logout_final.png" alt="Screenshot da tela de Logout" width="50%">
+        </td>
+    </tr>
+</table>

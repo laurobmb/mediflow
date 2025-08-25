@@ -21,6 +21,7 @@ logger = logging.getLogger('MediFlowSystemTest')
 
 BASE_URL = os.getenv('APP_URL', 'http://127.0.0.1:8080')
 DEFAULT_TIMEOUT = 20 # Timeout padrão para a maioria das ações
+AI_TIMEOUT = 120 # Timeout estendido para aguardar a resposta da IA
 STEP_DELAY = 0.5
 
 # --- Credenciais de Teste ---
@@ -140,29 +141,29 @@ class MediFlowSystemTest(unittest.TestCase):
         logger.info("--- INICIANDO TESTE COMPLETO DO FLUXO DE ADMINISTRADOR ---")
         self._login(ADMIN_EMAIL, TEST_PASS)
         self.wait.until(EC.url_contains('/admin/dashboard'))
-        self._take_screenshot("01_dashboard_inicial")
+        self._take_screenshot("dashboard_inicial")
 
         # 1. Teste de Navegação (Smoke Test)
         logger.info("Admin: Verificando todas as abas de navegação...")
         self.browser.get(f'{BASE_URL}/admin/agenda')
         self.wait.until(EC.url_contains("/admin/agenda"))
-        self._take_screenshot("02_agenda")
+        self._take_screenshot("agenda")
         
         self.browser.get(f'{BASE_URL}/admin/users')
         self.wait.until(EC.url_contains("/admin/users"))
-        self._take_screenshot("03_gerenciar_usuarios")
+        self._take_screenshot("gerenciar_usuarios")
         
         self.browser.get(f'{BASE_URL}/admin/patients')
         self.wait.until(EC.url_contains("/admin/patients"))
-        self._take_screenshot("04_gerenciar_pacientes")
+        self._take_screenshot("gerenciar_pacientes")
         
         self.browser.get(f'{BASE_URL}/admin/monitoring')
         self.wait.until(EC.url_contains("/admin/monitoring"))
-        self._take_screenshot("05_monitoramento")
+        self._take_screenshot("monitoramento")
 
         self.browser.get(f'{BASE_URL}/admin/audit-logs')
         self.wait.until(EC.url_contains("/admin/audit-logs"))
-        self._take_screenshot("06_logs_auditoria")
+        self._take_screenshot("logs_auditoria")
 
         logger.info("Admin: Todas as abas foram acessadas com sucesso.")
 
@@ -177,27 +178,47 @@ class MediFlowSystemTest(unittest.TestCase):
         self.browser.find_element(By.ID, "email").send_keys(novo_user_email)
         self.browser.find_element(By.ID, "password").send_keys("senha123")
         Select(self.browser.find_element(By.ID, "user_type")).select_by_visible_text("secretaria")
-        self._take_screenshot("07_formulario_novo_usuario")
+        self._take_screenshot("formulario_novo_usuario")
         self.browser.find_element(By.CLASS_NAME, "btn-submit").click()
         
         logger.info(f"Admin: A remover o utilizador '{novo_user_nome}'...")
         linha_user = self.wait.until(EC.presence_of_element_located((By.XPATH, f"//td[text()='{novo_user_nome}']/parent::tr")))
-        self._take_screenshot("08_lista_com_novo_usuario")
+        self._take_screenshot("lista_com_novo_usuario")
         linha_user.find_element(By.LINK_TEXT, "Remover").click()
         self.wait.until(EC.alert_is_present()).accept()
         self.wait.until(EC.staleness_of(linha_user))
-        self._take_screenshot("09_lista_apos_remocao_usuario")
+        self._take_screenshot("lista_apos_remocao_usuario")
         logger.info("Admin: Utilizador removido com sucesso.")
 
         # 3. Gestão de Pacientes e Fluxo de Consentimento
         random_str_patient = ''.join(random.choices(string.ascii_lowercase, k=6))
-        novo_paciente_nome = f"Paciente Consentimento {random_str_patient}"
-        logger.info(f"Admin: A adicionar o paciente '{novo_paciente_nome}' para o teste de consentimento...")
+        novo_paciente_nome = f"Paciente Completo {random_str_patient}"
+        logger.info(f"Admin: A adicionar o paciente '{novo_paciente_nome}' com dados completos...")
         self.browser.get(f'{BASE_URL}/admin/patients/new')
         
+        # Preenche todos os campos do formulário
         self.wait.until(EC.presence_of_element_located((By.ID, "client_name"))).send_keys(novo_paciente_nome)
+        self.browser.find_element(By.NAME, "address_street").send_keys("Rua dos Testes, 123")
         self.browser.find_element(By.NAME, "mobile").send_keys("11912345678")
+        self.browser.find_element(By.NAME, "dob").send_keys("1990-10-15") # Formato YYYY-MM-DD
+        self.browser.find_element(By.NAME, "email").send_keys(f"paciente.{random_str_patient}@teste.com")
+        self.browser.find_element(By.NAME, "profession").send_keys("Engenheiro de Testes")
         
+        logger.info("Admin: Preenchendo avaliação emocional...")
+        self.browser.find_element(By.XPATH, "//input[@name='anxiety_level'][@value='8']").click()
+        self.browser.find_element(By.XPATH, "//input[@name='anger_level'][@value='3']").click()
+        self.browser.find_element(By.XPATH, "//input[@name='fear_level'][@value='4']").click()
+        self.browser.find_element(By.XPATH, "//input[@name='sadness_level'][@value='6']").click()
+        self.browser.find_element(By.XPATH, "//input[@name='joy_level'][@value='5']").click()
+        self.browser.find_element(By.XPATH, "//input[@name='energy_level'][@value='7']").click()
+        
+        self.browser.find_element(By.NAME, "main_complaint").send_keys("Sente uma ansiedade generalizada e constante, com picos de pânico em situações de estresse no trabalho.")
+        self.browser.find_element(By.NAME, "complaint_history").send_keys("Os sintomas se intensificaram nos últimos 8 meses, após uma mudança de responsabilidades no emprego.")
+        self.browser.find_element(By.NAME, "signs_symptoms").send_keys("Aperto no peito, taquicardia, insônia, irritabilidade, dificuldade de concentração.")
+        self.browser.find_element(By.NAME, "current_treatment").send_keys("Nenhum tratamento medicamentoso no momento. Tentou meditação através de aplicativos.")
+        self.browser.find_element(By.NAME, "notes").send_keys("Paciente demonstra bom insight sobre os gatilhos de sua ansiedade, mas apresenta dificuldade em estabelecer limites.")
+        self._take_screenshot("formulario_novo_paciente_preenchido")
+
         logger.info("Admin: Clicando no botão principal para salvar o paciente...")
         save_button = self.browser.find_element(By.XPATH, "//div[@class='form-actions']/button[@type='submit']")
         save_button.click()
@@ -230,12 +251,12 @@ class MediFlowSystemTest(unittest.TestCase):
         logger.info("Paciente: Preenchendo o formulário de consentimento...")
         self.wait.until(EC.presence_of_element_located((By.ID, "consent_cpf_rg_inline"))).send_keys(TEST_CPF)
         self.browser.find_element(By.XPATH, "//input[@name='how_found'][@value='Google']").click()
-        self._take_screenshot("10_formulario_consentimento")
+        self._take_screenshot("formulario_consentimento")
         self.browser.find_element(By.CLASS_NAME, "btn-submit").click()
 
         # Verifica a página de sucesso
         self.wait.until(EC.url_contains("/portal/success"))
-        self._take_screenshot("11_pagina_sucesso_consentimento")
+        self._take_screenshot("pagina_sucesso_consentimento")
         logger.info("Paciente: Formulário de consentimento enviado com sucesso.")
 
         # Fecha a aba do paciente e volta para a do admin
@@ -247,7 +268,7 @@ class MediFlowSystemTest(unittest.TestCase):
         self.browser.refresh()
         status_element = self.wait.until(EC.presence_of_element_located((By.XPATH, f"//td[text()='{novo_paciente_nome}']/parent::tr/td[5]")))
         self.assertIn("Fornecido", status_element.text)
-        self._take_screenshot("12_status_consentimento_atualizado")
+        self._take_screenshot("status_consentimento_atualizado")
         logger.info("Admin: Status do consentimento verificado com sucesso.")
         
         # 4. Agendamento de Consulta e Verificação de Pagamento
@@ -256,21 +277,20 @@ class MediFlowSystemTest(unittest.TestCase):
         linha_paciente.find_element(By.LINK_TEXT, "Ver Perfil e Agenda").click()
 
         self.wait.until(EC.url_contains('/admin/patients/profile/'))
-        self._take_screenshot("13_perfil_paciente_para_agendamento")
+        self._take_screenshot("perfil_paciente_para_agendamento")
 
         logger.info("Admin: Preenchendo o formulário de agendamento...")
         
-        # CORREÇÃO: Envia a data como uma sequência de números
         appointment_date_sequence = "9222025"
         appointment_time = "13:00"
         
         Select(self.browser.find_element(By.ID, "doctor_id")).select_by_visible_text(TERAPEUTA_NOME)
         self.browser.find_element(By.ID, "appointment_date").send_keys(appointment_date_sequence)
         self.browser.find_element(By.ID, "start_time").send_keys(appointment_time)
-        self.browser.find_element(By.ID, "price").send_keys("200")
+        self.browser.find_element(By.ID, "price").send_keys("200.00")
         self.browser.find_element(By.ID, "notes").send_keys("Paciente agendado via teste automatizado. Sessão inicial.")
         
-        self._take_screenshot("14_formulario_agendamento_preenchido")
+        self._take_screenshot("formulario_agendamento_preenchido")
         
         schedule_button = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//fieldset[legend[text()='Agendar Nova Consulta']]//button[@type='submit']")))
         schedule_button.click()
@@ -285,7 +305,7 @@ class MediFlowSystemTest(unittest.TestCase):
         self.assertIn(TERAPEUTA_NOME, appointment_row.text)
         self.assertIn("200.00", appointment_row.text)
         self.assertIn("pendente", appointment_row.text)
-        self._take_screenshot("15_consulta_agendada_com_sucesso")
+        self._take_screenshot("consulta_agendada_com_sucesso")
         logger.info("Admin: Consulta verificada com sucesso na lista.")
 
         # 5. Marcar consulta como paga
@@ -299,8 +319,42 @@ class MediFlowSystemTest(unittest.TestCase):
         payment_status_cell = updated_appointment_row.find_element(By.XPATH, "./td[4]") # A quarta célula (Pagamento)
         self.assertIn("✅", payment_status_cell.text)
         self.assertIn("pago", payment_status_cell.text)
-        self._take_screenshot("16_consulta_marcada_como_paga")
+        self._take_screenshot("consulta_marcada_como_paga")
         logger.info("Admin: Status de pagamento verificado com sucesso.")
+
+        # 6. Gerar Resumo de IA
+        logger.info(f"Admin: Acedendo ao prontuário do paciente '{novo_paciente_nome}' para gerar resumo de IA...")
+        self.browser.get(f'{BASE_URL}/admin/patients')
+        search_box_for_ai = self.wait.until(EC.presence_of_element_located((By.ID, "search-box")))
+        search_box_for_ai.clear()
+        search_box_for_ai.send_keys(novo_paciente_nome)
+        search_box_for_ai.submit()
+
+        linha_paciente_for_ai = self.wait.until(EC.presence_of_element_located((By.XPATH, f"//td[text()='{novo_paciente_nome}']/parent::tr")))
+        linha_paciente_for_ai.find_element(By.LINK_TEXT, "Ver Perfil e Agenda").click()
+
+        self.wait.until(EC.url_contains('/admin/patients/profile/'))
+        edit_prontuario_link = self.wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Editar Dados / Ver Prontuário")))
+        edit_prontuario_link.click()
+
+        self.wait.until(EC.url_contains('/admin/patients/edit/'))
+        logger.info("Admin: Clicando no botão para gerar resumo de IA...")
+        ai_button = self.wait.until(EC.element_to_be_clickable((By.ID, "btn-ai-summary")))
+        ai_button.click()
+
+        logger.info("Admin: A aguardar a resposta da IA...")
+        summary_container = self.wait.until(EC.presence_of_element_located((By.ID, "ai-summary-container")))
+        
+        # Usa um timeout maior para a IA
+        WebDriverWait(self.browser, AI_TIMEOUT).until(
+            lambda driver: "aguarde" not in summary_container.text and len(summary_container.text) > 20
+        )
+
+        summary_text = summary_container.text
+        self.assertIn("Temas Recorrentes", summary_text)
+        self.assertIn("Evolução", summary_text)
+        self._take_screenshot("resumo_ia_gerado_pelo_admin")
+        logger.info(f"Admin: Resumo de IA gerado com sucesso! Conteúdo: {summary_text[:100]}...")
 
         # Limpeza: Remove o paciente criado
         logger.info(f"Admin: Removendo paciente de teste '{novo_paciente_nome}'...")
