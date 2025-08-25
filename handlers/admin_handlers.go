@@ -330,23 +330,33 @@ func (h *AdminHandler) PostNewPatient(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/admin/patients")
 		return
 	}
-	
+
+	// Gera o token de acesso único (chama a função que já existe no pacote)
+	token, err := generateSecureToken(32)
+	if err != nil {
+		log.Printf("Erro ao gerar token seguro: %v", err)
+		c.Redirect(http.StatusFound, "/admin/patients")
+		return
+	}
+
 	query := `
-        INSERT INTO patients (
-            consent_date, consent_name, consent_cpf_rg, signature_date, signature_location, 
-            name, address_street, address_number, address_neighborhood, address_city, address_state, 
-            phone, mobile, dob, age, gender, marital_status, children, num_children, profession, email, 
-            emergency_contact, emergency_phone, emergency_other, 
-            created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
-    `
-	
-	_, err := h.DB.Exec(query, 
-		toDate(patient.ConsentDate), patient.ConsentName, patient.ConsentCpfRg, toDate(patient.SignatureDate), patient.SignatureLocation, 
-		patient.Name, patient.AddressStreet, patient.AddressNumber, patient.AddressNeighborhood, patient.AddressCity, patient.AddressState, 
-		patient.Phone, patient.Mobile, toDate(patient.DOB), patient.Age, patient.Gender, patient.MaritalStatus, patient.Children, patient.NumChildren, 
-		patient.Profession, patient.Email, patient.EmergencyContact, patient.EmergencyPhone, patient.EmergencyOther, 
-		time.Now(), time.Now())
+	INSERT INTO patients (
+		consent_date, consent_name, consent_cpf_rg, signature_date, signature_location, 
+		name, address_street, address_number, address_neighborhood, address_city, address_state, 
+		phone, mobile, dob, age, gender, marital_status, children, num_children, profession, email, 
+		emergency_contact, emergency_phone, emergency_other, 
+		created_at, updated_at, access_token
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+	`
+
+	// CORREÇÃO: Usa '=' em vez de ':=' para a variável 'err' que já foi declarada
+	_, err = h.DB.Exec(query,
+		toDate(patient.ConsentDate), patient.ConsentName, patient.ConsentCpfRg, toDate(patient.SignatureDate), patient.SignatureLocation,
+		patient.Name, patient.AddressStreet, patient.AddressNumber, patient.AddressNeighborhood, patient.AddressCity, patient.AddressState,
+		patient.Phone, patient.Mobile, toDate(patient.DOB), patient.Age, patient.Gender, patient.MaritalStatus, patient.Children, patient.NumChildren,
+		patient.Profession, patient.Email, patient.EmergencyContact, patient.EmergencyPhone, patient.EmergencyOther,
+		time.Now(), time.Now(), token) 
+
 	if err != nil {
 		log.Printf("Erro ao inserir novo paciente pelo admin: %v", err)
 	}
